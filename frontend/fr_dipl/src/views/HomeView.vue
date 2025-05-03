@@ -1,17 +1,24 @@
-<script setup>
-
-import Button from 'primevue/button'
-
-
-</script>
-
 <template>
-  <main>
-    <Button label="Click me"></Button>
-    <h1>Ckasdkasdlkas</h1>
-  </main>
+  <div>
+    <header>
+      <TopMenu />
+    </header>
+
+    <div class="flex flex-grow">
+      <SidebarMenu />
+
+      <main class="flex-grow p-5">
+        <RouterView />  
+      </main>
+
+    </div>
+  </div>
 </template>
 
+<script setup>
+import TopMenu from './components/TopMenu.vue'
+import SidebarMenu from './components/SidebarMenu.vue'
+</script>
 
 <style>
 

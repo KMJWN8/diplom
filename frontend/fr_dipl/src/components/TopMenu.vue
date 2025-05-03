@@ -19,7 +19,7 @@ const items = [
   {
     label: 'Home',
     icon: 'pi pi-home',
-    command: () => { router.push('/')}
+    command: () => { router.push({name:'home'})}
   },
   {
     label: 'Account',
@@ -28,12 +28,12 @@ const items = [
         {
             label: 'Login',
             icon: 'pi pi-user',
-            command: () => { router.push('/login')}
+            command: () => { router.push({name:'login'})}
         },
         {
             label: 'Register',
             icon: 'pi pi-check',
-            command: () => { router.push('/register')}
+            command: () => { router.push({name:'register'})}
         }
     ]
   }

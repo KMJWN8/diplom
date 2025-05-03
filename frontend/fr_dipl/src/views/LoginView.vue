@@ -1,5 +1,11 @@
 <template>
-      <h1>This is a login page</h1>
+  <div><AuthForm mode="login" /></div>
 </template>
 
-  
+<script setup>
+  import AuthForm from '@/components/AuthForm.vue'
+</script>
+
+<style>
+
+</style>
