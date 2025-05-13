@@ -16,8 +16,8 @@
 </template>
 
 <script setup>
-import TopMenu from './components/TopMenu.vue'
-import SidebarMenu from './components/SidebarMenu.vue'
+import TopMenu from '@/components/TopMenu.vue'
+import SidebarMenu from '@/components/SidebarMenu.vue'
 </script>
 
 <style>

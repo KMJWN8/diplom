@@ -9,8 +9,7 @@ const router = createRouter({
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
       meta: {
-        layout: 'Main',
-        auth: false,
+        auth: true,
       },
     },
     {
@@ -18,7 +17,6 @@ const router = createRouter({
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
       meta: {
-        layout: 'Auth',
         auth: false,
       },
     },
@@ -27,7 +25,6 @@ const router = createRouter({
       name: 'register',
       component: () => import('@/views/RegisterView.vue'),
       meta: {
-        layout: 'Auth',
         auth: false,
       },
     },
