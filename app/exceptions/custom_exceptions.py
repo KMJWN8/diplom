@@ -10,6 +10,12 @@ class ChannelNotFoundException(TelegramParserException):
     pass
 
 
+class InvalidLinkException(TelegramParserException):
+    """Неверный формат ссылки"""
+
+    pass
+
+
 class AuthenticationException(TelegramParserException):
     """Ошибка аутентификации Telegram"""
 

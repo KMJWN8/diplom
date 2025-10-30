@@ -9,7 +9,7 @@ from app.exceptions.custom_exceptions import (
     RateLimitException,
 )
 from app.repositories.telegram_repository import TelegramRepository
-from app.schemas.telegram import ChannelResponse, ParseRequest, PostResponse
+from app.schemas.telegram import ParseRequest
 from app.services.telegram_service import TelegramService
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])

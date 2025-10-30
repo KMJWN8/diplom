@@ -16,10 +16,9 @@ class Channel(BaseModel):
 class Post(BaseModel):
     channel_id: int
     post_id: int
-    message: Optional[str] = None
+    message: str
     date: datetime
     views: Optional[int] = None
     comments_count: int = 0
     forwards: Optional[int] = None
-    media_type: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now(timezone.utc))

@@ -51,7 +51,12 @@ class TelegramRepository:
             {"$set": post_data},
             upsert=True,
         )
-        return Post(**post_data)
+
+        saved_post = await self.posts.find_one(
+            {"channel_id": post.channel_id, "post_id": post.post_id}
+        )
+
+        return Post(**saved_post)
 
     async def get_posts_by_channel(
         self, channel_id: int, limit: int = 100
