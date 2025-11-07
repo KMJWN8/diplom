@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from app.database import close_db, init_db
 from app.dependencies.telegram_client import telegram_client
-from app.routes.telegram import router as telegram_router
+from app.routes.parser import router as parser_router
 
 
 @asynccontextmanager
@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     )
 
     # Подключаем роутеры
-    app.include_router(telegram_router)
+    app.include_router(parser_router)
 
     return app
 

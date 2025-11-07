@@ -1,30 +1,21 @@
-from motor.motor_asyncio import AsyncIOMotorClient
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import settings
 
+DATABASE_URL = f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
-class Database:
-    client: AsyncIOMotorClient = None
-    database = None
+engine = create_async_engine(DATABASE_URL)
 
-
-db = Database()
+async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-async def get_database() -> AsyncIOMotorClient:
-    return db.database
+class Base(DeclarativeBase):
+    pass
 
 
-async def init_db():
-    db.client = AsyncIOMotorClient(settings.mongodb_url)
-    db.database = db.client[settings.mongodb_db_name]
-
-    # Создаем индексы
-    await db.database.channels.create_index("channel_id", unique=True)
-    await db.database.posts.create_index(
-        [("channel_id", 1), ("post_id", 1)], unique=True
-    )
-
-
-async def close_db():
-    db.client.close()
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_maker() as session:
+        yield session

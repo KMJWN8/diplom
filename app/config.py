@@ -1,24 +1,24 @@
-import os
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # MongoDB
-    mongodb_url: str = "mongodb://localhost:27017"
-    mongodb_db_name: str = "telegram_parser"
-
     # Telegram API
-    api_id: int
-    api_hash: str
-    phone_number: str
+    API_ID: int
+    API_HASH: str
+    PHONE_NUMBER: str
+
+    # Postgres
+    DB_HOST: str
+    DB_PORT: int
+    DB_USER: str
+    DB_PASS: str
+    DB_NAME: str
 
     # Session
-    session_name: str = "telegram_parser"
+    SESSION_NAME: str = "telegram_parser"
 
     model_config = SettingsConfigDict(
-        env_file="/home/saryglar311/Projects/diplom-fastapi/.env"
+        env_file="../.env"
     )
-
 
 settings = Settings()

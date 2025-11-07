@@ -11,14 +11,15 @@ class TelegramClientManager:
     async def get_client(self) -> TelegramClient:
         if self.client is None:
             self.client = TelegramClient(
-                settings.session_name,
-                settings.api_id,
-                settings.api_hash,
+                settings.SESSION_NAME,
+                settings.API_ID,
+                settings.API_HASH,
                 device_model="Telegram Parser Server",
-                system_version="Linux",
+                system_version="4.16.30-vxCUSTOM",
                 app_version="1.0.0",
+                timeout=10
             )
-            await self.client.start(phone=settings.phone_number)
+            await self.client.start(phone=settings.PHONE_NUMBER)
             self.is_authenticated = True
 
         if not self.client.is_connected():
