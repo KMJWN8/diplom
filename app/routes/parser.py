@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.tasks.parse_tasks import parse_channel_task
 
-router = APIRouter(prefix="/channels", tags=["channels"])
+router = APIRouter(prefix="/channels", tags=["parsing"])
 
 
 @router.post("/parse")

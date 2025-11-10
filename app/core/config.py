@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     SESSION_NAME: str = "telegram_parser"
     TG_SESSION_STRING: str | None = None
 
-    model_config = SettingsConfigDict(env_file="../.env")
+    model_config = SettingsConfigDict(env_file="../../.env")
 
 
 settings = Settings()

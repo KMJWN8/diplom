@@ -1,7 +1,12 @@
+alembic=1.17.1
+asyncio=4.0.0
+asyncpg=0.30.0
+celery=5.5.3
 fastapi==0.120.2
-uvicorn==0.38.0
-Telethon==1.41.2
-motor==3.7.1
+redis=7.0.1
+SQLAlchemy=2.0.44
 pydantic==2.12.3
 pydantic-settings==2.11.0
 python-dotenv==1.2.1
+Telethon==1.41.2
+uvicorn==0.38.0
