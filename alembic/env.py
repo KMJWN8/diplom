@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.core.database import Base
+from app.models.channel import Channel
 from app.models.post import Post
 
 load_dotenv()

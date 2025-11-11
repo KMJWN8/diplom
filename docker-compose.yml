@@ -9,9 +9,9 @@ services:
     environment:
       POSTGRES_DB: tgdb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "Dedos2003),"
+      POSTGRES_PASSWORD: Dedos2003),
     ports:
-      - "5432:5432"
+      - "5443:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -39,7 +39,7 @@ services:
 
   celery_worker:
     build: .
-    command: celery -A app.tasks.celery_app worker --loglevel=INFO
+    command: celery -A app.core.worker worker --loglevel=INFO
     volumes:
       - .:/app
     environment:

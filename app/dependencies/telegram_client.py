@@ -7,9 +7,6 @@ from app.core.config import settings
 
 
 class TelegramClientManager:
-    """
-    Менеджер Telethon клиента.
-    """
 
     def __init__(self):
         self.client: Optional[TelegramClient] = None
@@ -17,11 +14,15 @@ class TelegramClientManager:
     async def get_client(self) -> TelegramClient:
         if self.client is None:
             session_str = getattr(settings, "TG_SESSION_STRING", None)
-            if not session_str:
-                raise RuntimeError("TG_SESSION_STRING не задан в настройках (env).")
+            # if not session_str:
+            #     raise RuntimeError("TG_SESSION_STRING не задан в настройках (env).")
 
             self.client = TelegramClient(
-                StringSession(session_str),
+                (
+                    StringSession(settings.TG_SESSION_STRING)
+                    if settings.TG_SESSION_STRING
+                    else None
+                ),
                 settings.API_ID,
                 settings.API_HASH,
                 device_model="Telegram Parser Server",
@@ -31,15 +32,13 @@ class TelegramClientManager:
             )
 
             await self.client.connect()
+            # await self.client.start(phone=settings.PHONE_NUMBER)
 
-            # проверим авторизацию
             if not await self.client.is_user_authorized():
-                # клиент не авторизован — у сервера нет логина
                 raise RuntimeError(
                     "Telegram client not authorized. Проверьте TG_SESSION_STRING."
                 )
 
-        # убедимся, что соединение живое
         if not self.client.is_connected():
             await self.client.connect()
 
