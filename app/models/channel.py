@@ -29,6 +29,3 @@ class Channel(Base):
     last_parsed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    last_checked_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )

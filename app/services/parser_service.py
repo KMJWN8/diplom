@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.custom_classes.telegram_parser import TelegramParser
@@ -7,9 +7,6 @@ from app.schemas.post import PostCreate
 
 
 class ParserService:
-    """
-    Сервис для парсинга и сохранения постов Telegram-канала.
-    """
 
     def __init__(self, parser: TelegramParser, post_repo: PostRepository):
         self.parser = parser
@@ -19,42 +16,33 @@ class ParserService:
         self,
         channel_link: str,
         channel_id: int,
+        last_post_id: Optional[int] = None,
         since_date: Optional[datetime] = None,
         limit: int = 100,
         delay: float = 0.1,
     ) -> Dict[str, Any]:
-        """
-        Парсит посты Telegram-канала и сохраняет их в базу.
-        Если указан since_date — парсинг начинается с этой даты (пропуская старые посты).
-        """
+        # Получаем entity канала
+        info = await self.parser.get_channel_info(channel_link)
+        entity = info["entity"]
 
-        # 1️⃣ Получаем посты из Telegram
-        posts_data = await self.parser.parse_posts(
-            channel_link, limit=limit, delay=delay, since_date=since_date
-        )
+        # Парсим посты
+        posts_data = await self.parser.parse_posts(entity, limit=limit, delay=delay)
 
-        # 2️⃣ Добавляем channel_id и фильтруем старые посты
+        # Фильтруем старые посты
         valid_posts: List[PostCreate] = []
         for post in posts_data:
-            post_date = post.get("date")
-            if since_date and post_date <= since_date:
-                continue  # пропускаем старые
+            if (last_post_id and post["post_id"] <= last_post_id) or (
+                since_date and post["date"] <= since_date
+            ):
+                continue
             post["channel_id"] = channel_id
             valid_posts.append(PostCreate(**post))
 
-        if not valid_posts:
-            return {
-                "posts_parsed": len(posts_data),
-                "posts_saved": 0,
-                "status": "no_new_posts",
-            }
-
-        # 3️⃣ Массовое сохранение
-        inserted = await self.post_repo.bulk_create(valid_posts)
+        inserted = self.post_repo.bulk_create(valid_posts)
 
         return {
             "posts_parsed": len(posts_data),
             "posts_saved": inserted,
-            "status": "completed",
+            "status": "completed" if inserted else "no_new_posts",
             "last_post_date": valid_posts[-1].date if valid_posts else since_date,
         }

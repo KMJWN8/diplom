@@ -1,21 +1,20 @@
-from typing import AsyncGenerator
-
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import settings
 
-DATABASE_URL = f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+DATABASE_URL = f"postgresql+psycopg2://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
-engine = create_async_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+session_maker = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 class Base(DeclarativeBase):
     pass
 
 
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session_maker() as session:
+def get_session():
+
+    with session_maker() as session:
         yield session
