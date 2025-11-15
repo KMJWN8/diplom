@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,7 @@ class ChannelRepository:
 
         return channel
 
-    def get_all_channels(self):
+    def get_all_channels(self) -> List[Channel]:
         result = self.session.execute(select(Channel))
         return result.scalars().all()
 

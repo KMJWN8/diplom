@@ -7,7 +7,7 @@ from app.services.channel_service import ChannelService
 @shared_task(name="parse_channels_cycle")
 @with_channel_service
 def parse_channels_cycle_task(channel_service: ChannelService = None):
-    return channel_service.parse_channels(limit=100, delay=0.1)
+    return channel_service.parse_channels(delay=0.1)
 
 
 @shared_task(name="parse_channel_info")

@@ -30,7 +30,6 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('last_parsed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('last_checked_at', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_channels_channel_id'), 'channels', ['channel_id'], unique=True)

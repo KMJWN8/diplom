@@ -18,7 +18,6 @@ class ParserService:
         channel_id: int,
         last_post_id: Optional[int] = None,
         since_date: Optional[datetime] = None,
-        limit: int = 100,
         delay: float = 0.1,
     ) -> Dict[str, Any]:
         # Получаем entity канала
@@ -26,7 +25,7 @@ class ParserService:
         entity = info["entity"]
 
         # Парсим посты
-        posts_data = await self.parser.parse_posts(entity, limit=limit, delay=delay)
+        posts_data = await self.parser.parse_posts(entity, delay=delay)
 
         # Фильтруем старые посты
         valid_posts: List[PostCreate] = []

@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from app.repositories.channel import ChannelRepository
 from app.repositories.post import PostRepository
@@ -20,10 +20,8 @@ class ChannelService:
         self.parser_service = parser_service
 
     async def add_channel_if_not_exists(self, channel_link: str):
-        # извлекаем username
         username = channel_link.strip().lstrip("@").replace("https://t.me/", "")
 
-        # проверяем, есть ли канал в базе
         existing_channels = self.channel_repo.get_all_channels()
         channel = next((c for c in existing_channels if c.username == username), None)
         if channel:
@@ -33,7 +31,6 @@ class ChannelService:
                 "channel_id": channel.channel_id,
             }
 
-        # парсим информацию о канале
         info = await self.parser_service.parser.get_channel_info(channel_link)
         data = ChannelCreate(
             channel_id=info["id"],
@@ -41,7 +38,7 @@ class ChannelService:
             title=info["title"],
             participants_count=info["participants_count"],
         )
-        # создаём запись в базе
+
         channel = self.channel_repo.get_or_create_channel(data)
 
         return {
@@ -50,33 +47,22 @@ class ChannelService:
             "channel_id": channel.channel_id,
         }
 
-    async def parse_channels(
-        self, limit: int = 100, delay: float = 0.1
-    ) -> Dict[str, Any]:
-        # Берём все каналы из базы
-        channels = (
-            self.channel_repo.get_all_channels()
-        )  # возвращает объекты Channel с username
+    async def parse_channels(self, delay: float = 0.1) -> Dict[str, Any]:
+        channels = self.channel_repo.get_all_channels()
         results = []
         total_parsed = 0
         total_saved = 0
 
-        async def parse_one(username: str):
-            channel_link = f"@{username}"
-            # ищем канал в списке
-            channel = next((c for c in channels if c.username == username), None)
-
-            if not channel:
-                # создаём канал, если нет в базе
-                info = await self.parser_service.parser.get_channel_info(channel_link)
-                data = ChannelCreate(
-                    channel_id=info["id"],
-                    username=info["username"],
-                    title=info["title"],
-                    participants_count=info["participants_count"],
-                )
-                channel = self.channel_repo.get_or_create_channel(data)
-
+        async def parse_one(channel):
+            channel_link = f"@{channel.username}"
+            
+            if channel.last_parsed_at:
+                since_date = channel.last_parsed_at
+            else:
+                now = datetime.now(timezone.utc)
+                month_first_day = 1
+                since_date = datetime(now.year, now.month, month_first_day, tzinfo=timezone.utc)
+            
             last_post = self.post_repo.get_last_post(channel.channel_id)
             last_post_id = last_post.post_id if last_post else None
 
@@ -84,7 +70,7 @@ class ChannelService:
                 channel_link=channel_link,
                 channel_id=channel.channel_id,
                 last_post_id=last_post_id,
-                limit=limit,
+                since_date=since_date,
                 delay=delay,
             )
 
@@ -99,12 +85,14 @@ class ChannelService:
 
             return {"channel": channel.username or channel.title, **result}
 
-        # Асинхронный парсинг всех каналов
         parsed_results = await asyncio.gather(
-            *(parse_one(c.username) for c in channels if c.username)
+            *(parse_one(c) for c in channels if c.username),
+            return_exceptions=True
         )
 
         for r in parsed_results:
+            if isinstance(r, Exception):
+                continue
             total_parsed += r["posts_parsed"]
             total_saved += r["posts_saved"]
             results.append(r)

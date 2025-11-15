@@ -62,11 +62,11 @@ class TelegramParser:
             raise ChannelNotFoundException(f"Канал {channel_link} не найден")
 
     async def parse_posts(
-        self, entity: Channel, limit: int = 100, delay: float = 0.1
+        self, entity: Channel, delay: float = 0.1
     ) -> List[Dict[str, Any]]:
         posts_data = []
         try:
-            async for message in self.client.iter_messages(entity, limit=limit):
+            async for message in self.client.iter_messages(entity):
                 if not isinstance(message, Message) or not message.text:
                     continue
                 posts_data.append(

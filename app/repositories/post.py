@@ -79,12 +79,9 @@ class PostRepository:
         )
         return result.scalar_one_or_none()
 
-    def get_posts_by_topic(self, topic: str, limit: int = 100) -> List[PostResponse]:
+    def get_posts_by_topic(self, topic: str) -> List[PostResponse]:
         result = self.session.execute(
-            select(Post)
-            .where(Post.topic == topic)
-            .order_by(Post.date.desc())
-            .limit(limit)
+            select(Post).where(Post.topic == topic).order_by(Post.date.desc())
         )
         posts = result.scalars().all()
         return [PostResponse.model_validate(post) for post in posts]

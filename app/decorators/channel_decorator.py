@@ -15,7 +15,6 @@ telegram_client = TelegramClientManager()
 def with_channel_service(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # синхронная сессия
         session = next(get_session())
 
         channel_repo = ChannelRepository(session)
