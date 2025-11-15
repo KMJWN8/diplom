@@ -19,6 +19,37 @@ class ChannelService:
         self.post_repo = post_repo
         self.parser_service = parser_service
 
+    async def add_channel_if_not_exists(self, channel_link: str):
+        # извлекаем username
+        username = channel_link.strip().lstrip("@").replace("https://t.me/", "")
+
+        # проверяем, есть ли канал в базе
+        existing_channels = self.channel_repo.get_all_channels()
+        channel = next((c for c in existing_channels if c.username == username), None)
+        if channel:
+            return {
+                "status": "exists",
+                "channel": channel.username,
+                "channel_id": channel.channel_id,
+            }
+
+        # парсим информацию о канале
+        info = await self.parser_service.parser.get_channel_info(channel_link)
+        data = ChannelCreate(
+            channel_id=info["id"],
+            username=info["username"],
+            title=info["title"],
+            participants_count=info["participants_count"],
+        )
+        # создаём запись в базе
+        channel = self.channel_repo.get_or_create_channel(data)
+
+        return {
+            "status": "added",
+            "channel": channel.username,
+            "channel_id": channel.channel_id,
+        }
+
     async def parse_channels(
         self, limit: int = 100, delay: float = 0.1
     ) -> Dict[str, Any]:

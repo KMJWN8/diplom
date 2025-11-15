@@ -13,4 +13,4 @@ def parse_channels_cycle_task(channel_service: ChannelService = None):
 @shared_task(name="parse_channel_info")
 @with_channel_service
 def parse_channel_info_task(channel_link: str, channel_service: ChannelService = None):
-    return channel_service.parse_channels(channel_links=[channel_link])
+    return channel_service.add_channel_if_not_exists(channel_link)
