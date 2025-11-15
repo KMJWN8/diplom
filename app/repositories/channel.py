@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.channel import Channel
 from app.schemas.channel import ChannelCreate
 
-
 class ChannelRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -25,37 +24,34 @@ class ChannelRepository:
 
     async def get_or_create_channel(self, data: ChannelCreate) -> Channel:
         """
-        Если канал уже есть — обновляем базовую информацию.
-        Если нет — создаём новую запись.
+        Используем INSERT ... ON CONFLICT для атомарной операции.
         """
-        result = await self.session.execute(
-            select(Channel).where(Channel.channel_id == data.channel_id)
-        )
-        channel = result.scalar_one_or_none()
-
-        if channel:
-            # Обновляем метаданные (если изменились)
-            channel.username = data.username
-            channel.title = data.title
-            channel.participants_count = data.participants_count
-            channel.updated_at = datetime.now(timezone.utc)
-        else:
-            stmt = (
-                insert(Channel)
-                .values(
-                    channel_id=data.channel_id,
-                    username=data.username,
-                    title=data.title,
-                    participants_count=data.participants_count,
-                    created_at=datetime.now(timezone.utc),
-                    updated_at=datetime.now(timezone.utc),
-                )
-                .returning(Channel)
+        stmt = (
+            insert(Channel)
+            .values(
+                channel_id=data.channel_id,
+                username=data.username,
+                title=data.title,
+                participants_count=data.participants_count,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
             )
-            result = await self.session.execute(stmt)
-            channel = result.scalar_one()
-
+            .on_conflict_do_update(
+                index_elements=['channel_id'],
+                set_={
+                    'username': data.username,
+                    'title': data.title,
+                    'participants_count': data.participants_count,
+                    'updated_at': datetime.now(timezone.utc),
+                }
+            )
+            .returning(Channel)
+        )
+        
+        result = await self.session.execute(stmt)
+        channel = result.scalar_one()
         await self.session.commit()
+        
         return channel
 
     async def get_all_channels(self):

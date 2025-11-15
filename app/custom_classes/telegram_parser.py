@@ -82,9 +82,6 @@ class TelegramParser:
         except (ChannelInvalidError, UsernameNotOccupiedError, InviteHashInvalidError):
             raise ChannelNotFoundException(f"Канал {channel_link} не найден")
 
-    # -------------------------------
-    # 🔹 Парсинг постов
-    # -------------------------------
 
     async def parse_posts(
         self,

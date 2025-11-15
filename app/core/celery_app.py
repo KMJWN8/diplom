@@ -21,6 +21,7 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+
 celery_app.conf.beat_schedule = {
     "parse-channels-every-30-mins": {
         "task": "parse_channels_cycle",

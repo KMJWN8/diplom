@@ -1,35 +1,26 @@
 import asyncio
-from datetime import datetime, timezone
 
 from celery import shared_task
 
-from app.core.database import get_async_session
-from app.custom_classes.telegram_parser import TelegramParser
-from app.dependencies.telegram_client import telegram_client
-from app.repositories.channel import ChannelRepository
-from app.repositories.post import PostRepository
 from app.services.channel_service import ChannelService
-from app.services.parser_service import ParserService
+from app.decorators.channel_decorator import with_channel_service
 
-
-@shared_task(name="parse_channels_cycle", queue="telegram_parser")
+@shared_task(name="parse_channels_cycle")
 def parse_channels_cycle_task():
     asyncio.run(_parse_channels_cycle())
 
+@shared_task(name="parse_channel_info")
+def parse_channel_info_task(channel_link: str):
+    asyncio.run(_parse_channel_info(channel_link))
 
-async def _parse_channels_cycle():
-    async for session in get_async_session():
-        channel_repo = ChannelRepository(session)
-        post_repo = PostRepository(session)
+@with_channel_service
+async def _parse_channels_cycle(channel_service: ChannelService = None):
+    result = await channel_service.parse_all_channels(limit=100, delay=0.1)
+    print(f"[Celery] Результат парсинга: {result}")
+    return result
 
-        async with telegram_client as client:
-            parser = TelegramParser(client)
-            parser_service = ParserService(parser, post_repo)
-            channel_service = ChannelService(channel_repo, post_repo, parser_service)
-
-            result = await channel_service.parse_channel(
-                channel_link="@chp_kzl", limit=100, delay=0.1
-            )
-            print(f"[Celery] Результат парсинга: {result}")
-
-        break
+@with_channel_service
+async def _parse_channel_info(channel_link: str, channel_service: ChannelService = None):
+    result = await channel_service.parse_channel_info(channel_link)
+    print(f"[Celery] Информация о канале: {result}")
+    return result
