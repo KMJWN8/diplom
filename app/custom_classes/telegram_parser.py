@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from telethon import TelegramClient
 from telethon.errors import (
@@ -62,11 +62,11 @@ class TelegramParser:
             raise ChannelNotFoundException(f"Канал {channel_link} не найден")
 
     async def parse_posts(
-        self, entity: Channel, delay: float = 0.1
+        self, entity: Channel, delay: float = 0.1, min_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         posts_data = []
         try:
-            async for message in self.client.iter_messages(entity):
+            async for message in self.client.iter_messages(entity, min_id=min_id if min_id else None):
                 if not isinstance(message, Message) or not message.text:
                     continue
                 posts_data.append(
