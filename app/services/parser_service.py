@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.custom_classes.telegram_parser import TelegramParser
@@ -19,18 +18,14 @@ class ParserService:
         last_post_id: Optional[int] = None,
         delay: float = 0.1,
     ) -> Dict[str, Any]:
-        # Получаем entity канала
+        
         info = await self.parser.get_channel_info(channel_link)
         entity = info["entity"]
 
-        # Парсим посты
         posts_data = await self.parser.parse_posts(entity, delay=delay)
 
-        # Фильтруем посты: для новых каналов (last_post_id = None) берем все посты
-        # для существующих - только те, что новее last_post_id
         valid_posts: List[PostCreate] = []
         for post in posts_data:
-            # Если last_post_id не None и пост старый - пропускаем
             if last_post_id and post["post_id"] <= last_post_id:
                 continue
                 
