@@ -17,7 +17,6 @@ class ParserService:
         channel_link: str,
         channel_id: int,
         last_post_id: Optional[int] = None,
-        since_date: Optional[datetime] = None,
         delay: float = 0.1,
     ) -> Dict[str, Any]:
         # Получаем entity канала
@@ -27,13 +26,14 @@ class ParserService:
         # Парсим посты
         posts_data = await self.parser.parse_posts(entity, delay=delay)
 
-        # Фильтруем старые посты
+        # Фильтруем посты: для новых каналов (last_post_id = None) берем все посты
+        # для существующих - только те, что новее last_post_id
         valid_posts: List[PostCreate] = []
         for post in posts_data:
-            if (last_post_id and post["post_id"] <= last_post_id) or (
-                since_date and post["date"] <= since_date
-            ):
+            # Если last_post_id не None и пост старый - пропускаем
+            if last_post_id and post["post_id"] <= last_post_id:
                 continue
+                
             post["channel_id"] = channel_id
             valid_posts.append(PostCreate(**post))
 
@@ -43,5 +43,5 @@ class ParserService:
             "posts_parsed": len(posts_data),
             "posts_saved": inserted,
             "status": "completed" if inserted else "no_new_posts",
-            "last_post_date": valid_posts[-1].date if valid_posts else since_date,
+            "last_post_date": valid_posts[-1].date if valid_posts else None,
         }

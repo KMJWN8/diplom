@@ -56,21 +56,17 @@ class ChannelService:
         async def parse_one(channel):
             channel_link = f"@{channel.username}"
             
-            if channel.last_parsed_at:
-                since_date = channel.last_parsed_at
-            else:
-                now = datetime.now(timezone.utc)
-                month_first_day = 1
-                since_date = datetime(now.year, now.month, month_first_day, tzinfo=timezone.utc)
-            
+            # Для новых каналов (last_parsed_at = NULL) парсим все с начала
+            # Для уже парсенных каналов используем last_post_id для инкрементального парсинга
             last_post = self.post_repo.get_last_post(channel.channel_id)
             last_post_id = last_post.post_id if last_post else None
 
+            # Если канал никогда не парсился, начинаем с самого начала (last_post_id = None)
+            # Если уже парсился, используем последний сохраненный пост для инкрементального парсинга
             result = await self.parser_service.parse_and_save_posts(
                 channel_link=channel_link,
                 channel_id=channel.channel_id,
-                last_post_id=last_post_id,
-                since_date=since_date,
+                last_post_id=last_post_id,  # Для новых каналов = None, парсим все
                 delay=delay,
             )
 
