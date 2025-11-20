@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     TG_SESSION_STRING: str | None = None
 
     model_config = SettingsConfigDict(
-        env_file="/home/saryglar311/Projects/diplom-fastapi-refactored/.env"
+        env_file="/home/saryglar311/Projects/DIPLOM/backend/.env"
     )
 
 
