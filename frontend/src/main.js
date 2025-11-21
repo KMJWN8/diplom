@@ -7,6 +7,7 @@ import { createPinia } from 'pinia'
 
 import PrimeVue from 'primevue/config'
 import Material from '@primeuix/themes/material'
+import Chart from 'primevue/chart'
 
 import App from './App.vue'
 import router from './router'

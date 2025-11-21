@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import datetime, timezone, date
+from typing import List, Optional, Tuple
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, func, cast, Date
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -86,16 +86,37 @@ class PostRepository:
         posts = result.scalars().all()
         return [PostResponse.model_validate(post) for post in posts]
 
-    def get_posts_by_date(
-        self, date_from: datetime, date_to: datetime
-    ) -> List[PostResponse]:
+    def get_posts_by_specific_date(self, date: date) -> List[PostResponse]:
         result = self.session.execute(
             select(Post)
-            .where(Post.date.between(date_from, date_to))
+            .where(cast(Post.date, Date) == date)
             .order_by(Post.date)
         )
         posts = result.scalars().all()
         return [PostResponse.model_validate(post) for post in posts]
+    
+    def get_posts_count_by_date(
+            self, date_from: date, date_to: date
+    ) -> List[Tuple[date, int]]:
+        result = self.session.execute(
+            select(cast(Post.date, Date), func.count(Post.id))
+            .where(Post.date.between(date_from, date_to))
+            .group_by(cast(Post.date, Date))
+            .order_by(cast(Post.date, Date))
+        )
+
+        return result.all()
+
+    def get_posts_count_by_topics(
+            self
+    ) -> List[Tuple[str, int]]:
+        result = self.session.execute(
+            select(Post.topic, func.count(Post.id))
+            .group_by(Post.topic)
+            .order_by(func.count(Post.id).desc())
+        )
+
+        return result.all()
 
     def update_post_topic(self, post_id: int, topic: str) -> Optional[Post]:
         result = self.session.execute(select(Post).where(Post.post_id == post_id))
