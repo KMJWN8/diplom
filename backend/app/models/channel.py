@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import BigInteger, DateTime, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.post import Post
 
 
 class Channel(Base):
@@ -29,3 +30,5 @@ class Channel(Base):
     last_parsed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    posts: Mapped[List["Post"]] = relationship("Post", back_populates="channel")

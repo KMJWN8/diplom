@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.core.database import Base
 from sqlalchemy import (
     BigInteger,
     DateTime,
@@ -10,9 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.core.database import Base
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class Post(Base):
@@ -31,6 +30,8 @@ class Post(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+    channel: Mapped["Channel"] = relationship("Channel", back_populates="posts")
 
     __table_args__ = (
         UniqueConstraint("channel_id", "post_id", name="uq_channel_post"),

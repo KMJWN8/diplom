@@ -30,6 +30,7 @@ class PostCreate(BaseModel):
 class PostResponse(PostCreate):
     id: int
     created_at: datetime
+    channel_name: str
 
     model_config = ConfigDict(from_attributes=True)
 

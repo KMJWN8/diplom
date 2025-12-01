@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 
 from sqlalchemy import insert, select, func, cast, Date
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.post import Post
 from app.schemas.post import PostCreate, PostResponse
@@ -89,11 +89,23 @@ class PostRepository:
     def get_posts_by_specific_date(self, date: date) -> List[PostResponse]:
         result = self.session.execute(
             select(Post)
+            .options(joinedload(Post.channel))
             .where(cast(Post.date, Date) == date)
             .order_by(Post.date)
         )
         posts = result.scalars().all()
-        return [PostResponse.model_validate(post) for post in posts]
+        return [PostResponse(
+            id=post.id,
+            channel_id=post.channel_id,
+            channel_name=post.channel.title,  # получаем название из relationship
+            post_id=post.post_id,
+            message=post.message,
+            date=post.date,
+            views=post.views,
+            comments_count=post.comments_count,
+            topic=post.topic,
+            created_at=post.created_at
+        ) for post in posts]
     
     def get_posts_count_by_date(
             self, date_from: date, date_to: date
