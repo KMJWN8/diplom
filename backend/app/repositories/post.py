@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.post import Post
 from app.schemas.post import PostCreate, PostResponse
-
+from app.services.classification_service import ClassificationService
 
 class PostRepository:
     def __init__(self, session: Session):
@@ -40,19 +40,21 @@ class PostRepository:
         if not posts:
             return 0
 
-        dicts = [
-            {
+        dicts = []
+        for p in posts:
+            topics = ClassificationService.predict_topics(p.message)
+            topic_str = ClassificationService.topics_to_string(topics)
+
+            dicts.append({
                 "channel_id": p.channel_id,
                 "post_id": p.post_id,
                 "message": p.message,
                 "date": p.date,
                 "views": p.views,
                 "comments_count": p.comments_count,
-                "topic": p.topic,
+                "topic": topic_str,
                 "created_at": datetime.now(timezone.utc),
-            }
-            for p in posts
-        ]
+            })
 
         stmt = pg_insert(Post).values(dicts)
         stmt = stmt.on_conflict_do_nothing(index_elements=["channel_id", "post_id"])
@@ -140,3 +142,5 @@ class PostRepository:
             self.session.refresh(post)
 
         return post
+
+    
