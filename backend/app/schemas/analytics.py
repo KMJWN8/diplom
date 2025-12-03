@@ -1,5 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
 from typing import List
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PostsByDateResponse(BaseModel):
@@ -7,3 +8,6 @@ class PostsByDateResponse(BaseModel):
     counts: List[int] = Field(example=[5, 3, 7])
 
 
+class PostsByTopicResponse(BaseModel):
+    topics: List[str]
+    counts: List[int]

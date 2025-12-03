@@ -6,14 +6,17 @@ from pydantic import BaseModel, ConfigDict
 
 
 class PostTopic(str, Enum):
-    TECHNOLOGY = "technology"
+    ENVIRONMENT = "environment"
+    MANUFACTURE = "manufacture"
+    EMPLOYMENT = "employment"
+    FINANCEANDCREDIT = "financesandcredit"
+    HOMEANDINFRASTRUCTURE = "homeandinfrastructure"
+    HEALTHSERVICE = "healthservice"
+    EDUCATIONANDSPORT = "educationandsport"
+    SOCIALSPHERE = "socialsphere"
     POLITICS = "politics"
-    SPORTS = "sports"
-    ENTERTAINMENT = "entertainment"
-    BUSINESS = "business"
-    HEALTH = "health"
-    SCIENCE = "science"
-    OTHER = "other"
+    CRIMINALITY = "criminality"
+    DEMOGRAPHIC = "demographic"
     UNCLASSIFIED = "unclassified"
 
 
@@ -24,7 +27,7 @@ class PostCreate(BaseModel):
     date: datetime
     views: Optional[int] = None
     comments_count: int = 0
-    topic: PostTopic = PostTopic.UNCLASSIFIED
+    topic: str
 
 
 class PostResponse(PostCreate):
