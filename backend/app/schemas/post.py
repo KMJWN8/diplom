@@ -1,15 +1,15 @@
+# app/schemas/post.py
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class PostTopic(str, Enum):
     ENVIRONMENT = "environment"
     MANUFACTURE = "manufacture"
     EMPLOYMENT = "employment"
-    FINANCEANDCREDIT = "financesandcredit"
+    FINANCESANDCREDIT = "financesandcredit"
     HOMEANDINFRASTRUCTURE = "homeandinfrastructure"
     HEALTHSERVICE = "healthservice"
     EDUCATIONANDSPORT = "educationandsport"
@@ -27,18 +27,40 @@ class PostCreate(BaseModel):
     date: datetime
     views: Optional[int] = None
     comments_count: int = 0
-    topic: List[PostTopic]
+    topic: List[str] = []
+
+    @field_validator('topic')
+    @classmethod
+    def validate_topic(cls, v: List[str]) -> List[str]:
+        """Валидирует список тем, оставляя только допустимые значения."""
+        if not isinstance(v, list):
+            return []
+        
+        validated = []
+        valid_topics = {t.value for t in PostTopic}
+        
+        for topic in v:
+            if isinstance(topic, str):
+                clean_topic = topic.lower().strip()
+                if clean_topic in valid_topics:
+                    validated.append(clean_topic)
+                else:
+                    validated.append(PostTopic.UNCLASSIFIED.value)
+        
+        return list(dict.fromkeys(validated))
 
 
 class PostResponse(PostCreate):
     id: int
     created_at: datetime
-    channel_name: str
+    channel_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
+class PostsByDateResponse(BaseModel):
+    dates: List[str]
+    counts: List[int]
 
-class PostTopicUpdate(BaseModel):
-    post_id: int
-    channel_id: int
-    topic: PostTopic
+class PostsByTopicResponse(BaseModel):
+    topics: List[str]
+    counts: List[int]

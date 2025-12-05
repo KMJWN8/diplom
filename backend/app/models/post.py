@@ -2,12 +2,12 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.database import Base
+from app.schemas.post import PostResponse, PostTopic
 from sqlalchemy import (
     BigInteger,
     DateTime,
     ForeignKey,
     Integer,
-    String,
     Text,
     UniqueConstraint,
 )
@@ -44,3 +44,17 @@ class Post(Base):
     __table_args__ = (
         UniqueConstraint("channel_id", "post_id", name="uq_channel_post"),
     )
+
+    def to_response(self) -> PostResponse:
+        return PostResponse(
+            id=self.id,
+            channel_id=self.channel_id,
+            channel_name=self.channel.title if self.channel else None,
+            post_id=self.post_id,
+            message=self.message,
+            date=self.date,
+            views=self.views,
+            comments_count=self.comments_count,
+            topic=[PostTopic(t) for t in self.topic],
+            created_at=self.created_at,
+        )

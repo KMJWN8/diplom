@@ -3,7 +3,7 @@ from typing import List
 
 from app.core.database import get_session
 from app.repositories.post import PostRepository
-from app.schemas.analytics import PostsByDateResponse, PostsByTopicResponse
+from app.schemas.post import PostsByDateResponse, PostsByTopicResponse
 from app.schemas.post import PostResponse, PostTopic
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session

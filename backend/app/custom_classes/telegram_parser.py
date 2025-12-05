@@ -40,7 +40,6 @@ class TelegramParser:
         try:
             ident = self._extract_channel_identifier(channel_link)
 
-            # Если идентификатор — цифры, сразу кидаем исключение, так как access_hash нужен
             if ident.isdigit():
                 raise ChannelNotFoundException(
                     f"Числовой ID канала {ident} не поддерживается"
@@ -62,16 +61,25 @@ class TelegramParser:
             raise ChannelNotFoundException(f"Канал {channel_link} не найден")
 
     async def parse_posts(
-        self, entity: Channel, delay: float = 0.1, min_id: Optional[int] = None
+        self, 
+        entity: Channel, 
+        delay: float = 0.1, 
+        last_post_id: Optional[int] = None,
+        limit: int = 1000  # Добавляем лимит
     ) -> List[Dict[str, Any]]:
         posts_data = []
         try:            
-            async for message in self.client.iter_messages(entity):
+            async for message in self.client.iter_messages(
+                entity, 
+                limit=limit,
+                reverse=True
+            ):
                 if not isinstance(message, Message) or not message.text:
                     continue
                 
-                if min_id is not None and message.id <= min_id:
+                if last_post_id is not None and message.id <= last_post_id:
                     continue
+                
                 posts_data.append(
                     {
                         "post_id": message.id,
@@ -80,11 +88,15 @@ class TelegramParser:
                         "views": getattr(message, "views", None),
                         "comments_count": getattr(
                             getattr(message, "replies", None), "replies", 0
-                        )
-                        or 0,
+                        ) or 0,
                     }
                 )
+                
+                if len(posts_data) >= limit:
+                    break
+                    
                 await asyncio.sleep(delay)
+            
             return posts_data[::-1]
         except FloodWaitError as e:
             raise RateLimitException(f"Flood wait: {e}")

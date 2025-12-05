@@ -1,6 +1,6 @@
 import pickle
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pymorphy3
 from nltk.corpus import stopwords

@@ -26,8 +26,8 @@ const loading = ref(false)
 const chartLoading = ref(false)
 const selectedDate = ref('2025-01-01') // Выбранная дата для выделения
 const dateRange = ref({
-  from: '2024-12-25',
-  to: '2025-01-05'
+  from: '2024-01-01',
+  to: '2025-01-01'
 })
 
 // Функция для обновления цветов с выделением

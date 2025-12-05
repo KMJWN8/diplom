@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ChannelBase(BaseModel):
     channel_id: int = Field(..., description="ID канала в Telegram")
-    username: Optional[str] = Field(None, description="Username канала")
-    title: str = Field(..., description="Название канала")
+    username: Optional[str] = None
+    title: str
 
 
 class ChannelCreate(ChannelBase):
