@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -27,7 +27,7 @@ class PostCreate(BaseModel):
     date: datetime
     views: Optional[int] = None
     comments_count: int = 0
-    topic: str
+    topic: List[PostTopic]
 
 
 class PostResponse(PostCreate):

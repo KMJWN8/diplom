@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -19,16 +20,23 @@ class Post(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     channel_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("channels.channel_id"), nullable=False, index=True
+        BigInteger,
+        ForeignKey("channels.channel_id", ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False,
+        index=True,
     )
     post_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     views: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     comments_count: Mapped[int] = mapped_column(Integer, default=0)
-    topic: Mapped[str] = mapped_column(String(255), nullable=False)
+    topic: Mapped[JSONB] = mapped_column(JSONB, default=list, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     channel: Mapped["Channel"] = relationship("Channel", back_populates="posts")

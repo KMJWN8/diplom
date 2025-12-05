@@ -22,7 +22,6 @@ class ChannelService:
         self.channel_repo = channel_repo
         self.post_repo = post_repo
         self.parser_service = parser_service
-        logger.debug("ChannelService инициализирован")
 
     async def add_channel_if_not_exists(self, channel_link: str):
         username = channel_link.strip().lstrip("@").replace("https://t.me/", "")
@@ -66,8 +65,10 @@ class ChannelService:
             logger.debug(f"Парсинг канала: {channel.username or channel.title}")
             
             last_post = self.post_repo.get_last_post(channel.channel_id)
-            last_post_id = last_post.post_id if last_post else None
-
+            last_post_id = None 
+            if last_post and last_post.post_id:
+                last_post_id = int(last_post.post_id)
+            
             try:
                 result = await self.parser_service.parse_and_save_posts(
                     channel_link=channel_link,
@@ -91,7 +92,7 @@ class ChannelService:
             
             except Exception as e:
                 logger.error(f"Ошибка парсинга канала {channel.username}: {e}")
-                return {"channel": channel.username or channel.title, "error": str(e)}
+                return {"channel": channel.username or channel.title, "error": str(e), "posts_parsed": 0, "posts_saved": 0}
 
         parsed_results = await asyncio.gather(
             *(parse_one(c) for c in channels if c.username),

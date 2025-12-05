@@ -18,17 +18,19 @@ class ParserService:
         last_post_id: Optional[int] = None,
         delay: float = 0.1,
     ) -> Dict[str, Any]:
-        
+
         info = await self.parser.get_channel_info(channel_link)
         entity = info["entity"]
 
-        posts_data = await self.parser.parse_posts(entity, delay=delay, min_id=last_post_id)
+        posts_data = await self.parser.parse_posts(
+            entity, delay=delay, min_id=last_post_id
+        )
 
         valid_posts: List[PostCreate] = []
         for post in posts_data:
-            if last_post_id and post["post_id"] <= last_post_id:
+            if last_post_id is not None and int(post["post_id"]) <= last_post_id:
                 continue
-                
+
             post["channel_id"] = channel_id
             valid_posts.append(PostCreate(**post))
 

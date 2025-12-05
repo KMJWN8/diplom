@@ -21,6 +21,21 @@ class ClassificationService:
         self._load_model(model_path)
         self._load_nlp_tools()
 
+        self.topic_mapping = {
+            'environment': 'environment',
+            'manufacture': 'manufacture',
+            'employment': 'employment',
+            'financesandcredit': 'financesandcredit',
+            'homeandinfrastructure': 'homeandinfrastructure',
+            'healthservice': 'healthservice',
+            'educationandsport': 'educationandsport',
+            'socialsphere': 'socialsphere',
+            'politics': 'politics',
+            'criminality': 'criminality',
+            'demographic': 'demographic',
+            'unclassified': 'unclassified',
+        }
+
     def _load_model(self, model_path: str):
         """Загружает модель классификации"""
         try:
@@ -149,7 +164,14 @@ class ClassificationService:
             predicted_topics = []
             for i, topic in enumerate(self.topics):
                 if predictions[i] == 1:
-                    predicted_topics.append(topic)
+                    # Маппим тему из модели в PostTopic
+                    if topic in self.topic_mapping:
+                        predicted_topics.append(self.topic_mapping[topic])
+                    else:
+                        predicted_topics.append(topic)
+                        # Если ни одной темы не предсказано, возвращаем 'unclassified'
+            if not predicted_topics:
+                predicted_topics.append('unclassified')
 
             return predicted_topics
 

@@ -65,9 +65,12 @@ class TelegramParser:
         self, entity: Channel, delay: float = 0.1, min_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         posts_data = []
-        try:
-            async for message in self.client.iter_messages(entity, min_id=min_id if min_id else None):
+        try:            
+            async for message in self.client.iter_messages(entity):
                 if not isinstance(message, Message) or not message.text:
+                    continue
+                
+                if min_id is not None and message.id <= min_id:
                     continue
                 posts_data.append(
                     {
