@@ -36,10 +36,14 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  chartType: {
+    type: String,
+    default: 'topics' // 'topics' или 'dates'
   }
 })
 
-const emit = defineEmits(['dateClick'])
+const emit = defineEmits(['topicClick', 'dateClick'])
 
 const chartRef = ref(null)
 
@@ -54,6 +58,17 @@ const hasData = computed(() => {
          props.chartData.datasets[0].data.length > 0
 })
 
+// Динамические заголовки
+const chartTitle = computed(() => {
+  return props.chartType === 'topics' 
+    ? 'Количество постов по темам' 
+    : 'Количество постов по датам'
+})
+
+const xAxisTitle = computed(() => {
+  return props.chartType === 'topics' ? 'Темы' : 'Даты'
+})
+
 const chartOptions = ref({
   responsive: true,
   maintainAspectRatio: false,
@@ -63,12 +78,15 @@ const chartOptions = ref({
     },
     title: {
       display: true,
-      text: 'Количество постов по датам'
+      text: chartTitle
     },
     tooltip: {
       callbacks: {
         label: function(context) {
           return `Постов: ${context.parsed.y}`
+        },
+        title: function(context) {
+          return context[0].label
         }
       }
     }
@@ -76,8 +94,13 @@ const chartOptions = ref({
   onClick: (event, elements) => {
     if (elements.length > 0) {
       const index = elements[0].index
-      const date = props.chartData.labels[index]
-      emit('dateClick', date)
+      const label = props.chartData.labels[index]
+      
+      if (props.chartType === 'topics') {
+        emit('topicClick', label)
+      } else {
+        emit('dateClick', label)
+      }
     }
   },
   scales: {
@@ -86,15 +109,39 @@ const chartOptions = ref({
       title: {
         display: true,
         text: 'Количество постов'
+      },
+      ticks: {
+        precision: 0 // Целые числа
       }
     },
     x: {
       title: {
         display: true,
-        text: 'Даты'
+        text: xAxisTitle
+      },
+      ticks: {
+        maxRotation: props.chartType === 'dates' ? 45 : 0,
+        callback: function(value) {
+          // Для дат можно форматировать отображение
+          if (props.chartType === 'dates') {
+            const label = this.getLabelForValue(value)
+            // Если дата в формате YYYY-MM-DD, преобразуем в DD.MM.YYYY
+            if (label && label.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              const [year, month, day] = label.split('-')
+              return `${day}.${month}.${year}`
+            }
+          }
+          return this.getLabelForValue(value)
+        }
       }
     }
   }
+})
+
+// Обновляем options при изменении chartType
+watch(() => props.chartType, () => {
+  chartOptions.value.plugins.title.text = chartTitle.value
+  chartOptions.value.scales.x.title.text = xAxisTitle.value
 })
 </script>
 

@@ -3,13 +3,28 @@ import Button from 'primevue/button';
 import ToggleButton from 'primevue/togglebutton';
 import MessageListArea from '@/components/MessageListArea.vue';
 import PostsChart from '@/components/PostsChart.vue';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { postsApi } from '@/api/endpoints';
 
 const checked = ref(false);
 
-const posts = ref([])
-const chartData = ref({
+// Диаграмма по темам
+const topicsChartData = ref({
+  labels: [],
+  datasets: [
+    {
+      label: 'Количество постов',
+      data: [],
+      backgroundColor: 'rgba(75, 192, 192, 0.5)',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      borderWidth: 1,
+      borderRadius: 5,
+    }
+  ]
+})
+
+// Диаграмма по датам
+const datesChartData = ref({
   labels: [],
   datasets: [
     {
@@ -22,30 +37,49 @@ const chartData = ref({
     }
   ]
 })
+
+const posts = ref([])
 const loading = ref(false)
 const chartLoading = ref(false)
-const selectedDate = ref('2025-01-01') // Выбранная дата для выделения
+const selectedDate = ref('')
+const selectedTopic = ref('')
+
 const dateRange = ref({
   from: '2024-01-01',
   to: '2025-01-01'
 })
 
-// Функция для обновления цветов с выделением
-const updateChartColors = (dates, counts) => {
+// Опция переключения между диаграммами
+const activeChart = ref('topics') // 'topics' или 'dates'
+
+// Генерация цветов для диаграммы тем
+const generateColors = (count) => {
+  const colors = []
+  for (let i = 0; i < count; i++) {
+    const hue = (i * 137.508) % 360
+    colors.push(`hsla(${hue}, 70%, 65%, 0.7)`)
+  }
+  return colors
+}
+
+// Обновление цветов с выделением выбранной темы
+const updateTopicsChartColors = (topics, counts, selectedTopic) => {
+  const colors = generateColors(topics.length)
+  
   return {
-    labels: dates,
+    labels: topics,
     datasets: [
       {
         label: 'Количество постов',
         data: counts,
-        backgroundColor: dates.map(date => 
-          date === selectedDate.value ? 'rgba(255, 99, 132, 0.8)' : 'rgba(54, 162, 235, 0.5)'
+        backgroundColor: topics.map((topic, index) => 
+          topic === selectedTopic ? 'rgba(255, 99, 132, 0.8)' : colors[index]
         ),
-        borderColor: dates.map(date => 
-          date === selectedDate.value ? 'rgba(255, 99, 132, 1)' : 'rgba(54, 162, 235, 1)'
+        borderColor: topics.map((topic, index) => 
+          topic === selectedTopic ? 'rgba(255, 99, 132, 1)' : colors[index]
         ),
-        borderWidth: dates.map(date => 
-          date === selectedDate.value ? 3 : 1
+        borderWidth: topics.map(topic => 
+          topic === selectedTopic ? 3 : 1
         ),
         borderRadius: 5,
       }
@@ -53,8 +87,58 @@ const updateChartColors = (dates, counts) => {
   }
 }
 
-// Загрузка данных для диаграммы
-const loadChartData = async () => {
+// Обновление цветов с выделением выбранной даты
+const updateDatesChartColors = (dates, counts, selectedDate) => {
+  return {
+    labels: dates,
+    datasets: [
+      {
+        label: 'Количество постов',
+        data: counts,
+        backgroundColor: dates.map(date => 
+          date === selectedDate ? 'rgba(255, 99, 132, 0.8)' : 'rgba(54, 162, 235, 0.5)'
+        ),
+        borderColor: dates.map(date => 
+          date === selectedDate ? 'rgba(255, 99, 132, 1)' : 'rgba(54, 162, 235, 1)'
+        ),
+        borderWidth: dates.map(date => 
+          date === selectedDate ? 3 : 1
+        ),
+        borderRadius: 5,
+      }
+    ]
+  }
+}
+
+// Загрузка данных для диаграммы по темам
+const loadTopicsChartData = async () => {
+  chartLoading.value = true
+  try {
+    const response = await postsApi.getPostsCountByTopic(
+      dateRange.value.from, 
+      dateRange.value.to
+    )
+    
+    const data = response.data
+    
+    if (data.topics && data.counts) {
+      topicsChartData.value = updateTopicsChartColors(
+        data.topics, 
+        data.counts,
+        selectedTopic.value
+      )
+    }
+  }
+  catch (error) {
+    console.error('Topics chart data fetch error:', error)
+  }
+  finally {
+    chartLoading.value = false
+  }
+}
+
+// Загрузка данных для диаграммы по датам
+const loadDatesChartData = async () => {
   chartLoading.value = true
   try {
     const response = await postsApi.getPostsByDate(
@@ -65,11 +149,15 @@ const loadChartData = async () => {
     const data = response.data
     
     if (data.dates && data.counts) {
-      chartData.value = updateChartColors(data.dates, data.counts)
+      datesChartData.value = updateDatesChartColors(
+        data.dates, 
+        data.counts,
+        selectedDate.value
+      )
     }
   }
   catch (error) {
-    console.error('Chart data fetch error:', error)
+    console.error('Dates chart data fetch error:', error)
   }
   finally {
     chartLoading.value = false
@@ -79,20 +167,19 @@ const loadChartData = async () => {
 // Загрузка постов для конкретной даты
 const getPostsByDate = async (date) => {
   loading.value = true
-
-  await new Promise(resolve => setTimeout(resolve, 200));
-
   selectedDate.value = date
+  selectedTopic.value = '' // Сбрасываем выбор темы
   
   try {
     const response = await postsApi.getPostsBySpecificDate(date)
     posts.value = response.data
     
-    // Обновляем цвета на диаграмме
-    if (chartData.value.labels.length > 0) {
-      chartData.value = updateChartColors(
-        chartData.value.labels, 
-        chartData.value.datasets[0].data
+    // Обновляем цвета на диаграмме дат
+    if (datesChartData.value.labels.length > 0) {
+      datesChartData.value = updateDatesChartColors(
+        datesChartData.value.labels, 
+        datesChartData.value.datasets[0].data,
+        selectedDate.value
       )
     }
   }
@@ -105,16 +192,114 @@ const getPostsByDate = async (date) => {
   }
 }
 
+// Загрузка постов по теме
+const getPostsByTopic = async (topic) => {
+  loading.value = true
+  selectedTopic.value = topic
+  selectedDate.value = '' // Сбрасываем выбор даты
+  
+  try {
+    // Если есть API для постов по теме, используем его
+    if (postsApi.getPostsByTopic) {
+      const response = await postsApi.getPostsByTopic(
+        topic,
+        dateRange.value.from,
+        dateRange.value.to
+      )
+      posts.value = response.data
+    } else {
+      // Иначе показываем сообщение
+      console.warn('API для постов по теме не реализован')
+      posts.value = []
+    }
+    
+    // Обновляем цвета на диаграмме тем
+    if (topicsChartData.value.labels.length > 0) {
+      topicsChartData.value = updateTopicsChartColors(
+        topicsChartData.value.labels, 
+        topicsChartData.value.datasets[0].data,
+        selectedTopic.value
+      )
+    }
+  }
+  catch (error) {
+    console.error('Posts by topic fetch error:', error)
+    posts.value = []
+  }
+  finally {
+    loading.value = false
+  }
+}
+
 // Обработчик клика по диаграмме
+const handleChartClick = (data) => {
+  if (activeChart.value === 'topics') {
+    handleTopicClick(data)
+  } else {
+    handleDateClick(data)
+  }
+}
+
+const handleTopicClick = (topic) => {
+  getPostsByTopic(topic)
+}
+
 const handleDateClick = (date) => {
   getPostsByDate(date)
 }
 
+// Сброс выбора
+const resetSelection = () => {
+  if (activeChart.value === 'topics') {
+    selectedTopic.value = ''
+    // Обновляем диаграмму без выделения
+    if (topicsChartData.value.labels.length > 0) {
+      topicsChartData.value = updateTopicsChartColors(
+        topicsChartData.value.labels, 
+        topicsChartData.value.datasets[0].data,
+        ''
+      )
+    }
+  } else {
+    selectedDate.value = ''
+    // Обновляем диаграмму без выделения
+    if (datesChartData.value.labels.length > 0) {
+      datesChartData.value = updateDatesChartColors(
+        datesChartData.value.labels, 
+        datesChartData.value.datasets[0].data,
+        ''
+      )
+    }
+  }
+  posts.value = []
+}
+
+// Переключение между диаграммами
+const toggleChart = (type) => {
+  activeChart.value = type
+  if (type === 'topics') {
+    loadTopicsChartData()
+  } else {
+    loadDatesChartData()
+  }
+  // Сбрасываем выбор при переключении
+  resetSelection()
+}
+
 // Загрузка данных при монтировании
 onMounted(() => {
-  loadChartData()
-  getPostsByDate(selectedDate.value)
+  loadTopicsChartData()
 })
+
+// Следим за изменением дат
+watch(dateRange, () => {
+  if (activeChart.value === 'topics') {
+    loadTopicsChartData()
+  } else {
+    loadDatesChartData()
+  }
+  resetSelection()
+}, { deep: true })
 </script>
 
 <template>
@@ -122,42 +307,64 @@ onMounted(() => {
     <h1>Аналитика Telegram постов</h1>
     
     <div class="controls">
+      <div class="chart-selector">
+        <Button 
+          @click="toggleChart('topics')" 
+          :severity="activeChart === 'topics' ? 'primary' : 'secondary'"
+          label="По темам" 
+        />
+        <Button 
+          @click="toggleChart('dates')" 
+          :severity="activeChart === 'dates' ? 'primary' : 'secondary'"
+          label="По датам" 
+        />
+      </div>
+      
       <div class="date-range-controls">
         <label>Период анализа:</label>
         <input 
           type="date" 
           v-model="dateRange.from" 
-          @change="loadChartData"
         />
         <span>по</span>
         <input 
           type="date" 
           v-model="dateRange.to" 
-          @change="loadChartData"
         />
         <Button 
-          @click="loadChartData" 
+          @click="activeChart === 'topics' ? loadTopicsChartData() : loadDatesChartData()" 
           :disabled="chartLoading"
           label="Обновить график" 
+        />
+        <Button 
+          v-if="(selectedTopic || selectedDate) && posts.length > 0"
+          @click="resetSelection" 
+          label="Сбросить выбор" 
+          severity="secondary"
         />
       </div>
       
       <div class="current-selection">
-        <span>Выбранная дата: <strong>{{ selectedDate }}</strong></span>
+        <span v-if="activeChart === 'topics' && selectedTopic">
+          Выбранная тема: <strong>{{ selectedTopic }}</strong>
+        </span>
+        <span v-else-if="activeChart === 'dates' && selectedDate">
+          Выбранная дата: <strong>{{ selectedDate }}</strong>
+        </span>
+        <span v-else>
+          {{ activeChart === 'topics' ? 'Выберите тему из графика' : 'Выберите дату из графика' }}
+        </span>
         <span>Найдено постов: <strong>{{ posts.length }}</strong></span>
       </div>
     </div>
 
     <PostsChart 
-      :chart-data="chartData"
+      :chart-data="activeChart === 'topics' ? topicsChartData : datesChartData"
       :loading="chartLoading"
+      :chart-type="activeChart"
+      @topic-click="handleTopicClick"
       @date-click="handleDateClick"
     />
-
-    <div class="prime-buttons">
-      <Button label="Profile" icon="pi pi-user" severity="info" />
-      <ToggleButton v-model="checked" class="w-24" onLabel="On" offLabel="Off" />
-    </div>
 
     <MessageListArea 
       :posts="posts"
@@ -180,6 +387,12 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.chart-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
 .date-range-controls {
   display: flex;
   align-items: center;
@@ -196,12 +409,14 @@ onMounted(() => {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 14px;
 }
 
 .current-selection {
   display: flex;
   gap: 20px;
   font-size: 14px;
+  align-items: center;
 }
 
 .prime-buttons {

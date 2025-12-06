@@ -3,7 +3,7 @@
     <div class="container">
       <div class="header-content">
         <router-link to="/" class="logo">
-          CompanyName
+          TGlytics
         </router-link>
         
         <nav class="nav-menu">

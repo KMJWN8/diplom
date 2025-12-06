@@ -12,6 +12,21 @@ export const postsApi = {
       params: { date }
     })
   },
-  
+
+  getPostsCountByTopic(dateFrom, dateTo) {
+    return apiClient.get('/analytics/posts-count-by-topic', {
+      params: { date_from: dateFrom, date_to: dateTo }
+    })
+  },
+
+  getPostsByTopic(topic, dateFrom, dateTo) {
+    return apiClient.get('/analytics/posts-by-topic', {
+      params: {
+        topic: topic,
+        date_from: dateFrom,
+        date_to: dateTo
+      }
+    })
+  }
 
 }
