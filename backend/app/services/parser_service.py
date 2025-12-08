@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from app.custom_classes.telegram_parser import TelegramParser
 from app.repositories.post import PostRepository
 from app.schemas.post import PostCreate
-
+from app.dependencies.text_cleaner import clean_telegram_post
 
 class ParserService:
 
@@ -15,9 +15,9 @@ class ParserService:
         self,
         channel_link: str,
         channel_id: int,
+        limit: int,
         last_post_id: Optional[int] = None,
         delay: float = 0.1,
-        limit: int = 2000,
     ) -> Dict[str, Any]:
 
         info = await self.parser.get_channel_info(channel_link)
@@ -40,6 +40,10 @@ class ParserService:
         for post in posts_data:
             if last_post_id and post["post_id"] <= last_post_id:
                 continue
+
+            raw_text = post.get("message") or ""
+            cleaned_text = clean_telegram_post(raw_text)
+            post["message"] = cleaned_text
 
             post["channel_id"] = channel_id
             valid_posts.append(PostCreate(**post))

@@ -70,8 +70,8 @@ class ChannelService:
 
     async def parse_channels(
         self, 
+        limit: int,
         delay: float = 0.1, 
-        limit: int = 1000,
         max_concurrent: int = 5  # Максимум параллельных парсингов
     ) -> Dict[str, Any]:
         channels = self.channel_repo.get_all_channels()

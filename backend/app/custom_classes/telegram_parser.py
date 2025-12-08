@@ -63,9 +63,9 @@ class TelegramParser:
     async def parse_posts(
         self, 
         entity: Channel, 
+        limit: int,
         delay: float = 0.1, 
         last_post_id: Optional[int] = None,
-        limit: int = 1000  # Добавляем лимит
     ) -> List[Dict[str, Any]]:
         posts_data = []
         try:            

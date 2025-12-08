@@ -16,7 +16,7 @@ const router = createRouter({
     {
       path: '/report',
       name: 'report',
-      component: () => import('@/views/DashboardView.vue'),
+      component: () => import('@/views/ReportView.vue'),
     },
   ],
 })
