@@ -3,8 +3,10 @@ from typing import List
 
 from app.core.database import get_session
 from app.repositories.post import PostRepository
+from app.repositories.channel import ChannelRepository
 from app.schemas.post import PostsByDateResponse, PostsByTopicResponse
 from app.schemas.post import PostResponse, PostTopic
+from app.schemas.channel import ChannelResponse
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -72,3 +74,20 @@ async def get_posts_by_date_and_topic(
     posts = repo.get_posts_by_topic_and_date(topic, date)
 
     return posts
+
+@router.get("/channels")
+async def get_all_channels(
+    db: Session = Depends(get_session)
+) -> List[ChannelResponse]:
+    repo = ChannelRepository(db)
+    channels = repo.get_all_channels()
+
+    return channels
+
+@router.delete("/channels/{channel_id}")
+async def delete_channel(
+    channel_id: int,
+    db: Session = Depends(get_session)
+):
+    repo = ChannelRepository(db)
+    return repo.delete_channel(channel_id)

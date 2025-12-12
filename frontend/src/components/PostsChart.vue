@@ -58,96 +58,136 @@ const hasData = computed(() => {
          props.chartData.datasets[0].data.length > 0
 })
 
-// Динамические заголовки
-const chartTitle = computed(() => {
-  return props.chartType === 'topics' 
-    ? 'Количество постов по темам' 
-    : 'Количество постов по датам'
-})
-
-const xAxisTitle = computed(() => {
-  return props.chartType === 'topics' ? 'Темы' : 'Даты'
-})
-
-const chartOptions = ref({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false
-    },
-    title: {
-      display: true,
-      text: chartTitle
-    },
-    tooltip: {
-      callbacks: {
-        label: function(context) {
-          return `Постов: ${context.parsed.y}`
-        },
-        title: function(context) {
-          return context[0].label
-        }
-      }
-    }
-  },
-  onClick: (event, elements) => {
-    if (elements.length > 0) {
-      const index = elements[0].index
-      const label = props.chartData.labels[index]
-      
-      if (props.chartType === 'topics') {
-        emit('topicClick', label)
-      } else {
-        emit('dateClick', label)
-      }
-    }
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
+// Основные настройки графика
+const chartOptions = computed(() => {
+  const isHorizontal = props.chartType === 'topics'
+  
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: isHorizontal ? 'y' : 'x', // Горизонтальная для тем
+    plugins: {
+      legend: {
+        display: false
+      },
       title: {
         display: true,
-        text: 'Количество постов'
+        text: isHorizontal ? 'Количество постов по темам' : 'Количество постов по датам'
       },
-      ticks: {
-        precision: 0 // Целые числа
-      }
-    },
-    x: {
-      title: {
-        display: true,
-        text: xAxisTitle
-      },
-      ticks: {
-        maxRotation: props.chartType === 'dates' ? 45 : 0,
-        callback: function(value) {
-          // Для дат можно форматировать отображение
-          if (props.chartType === 'dates') {
-            const label = this.getLabelForValue(value)
-            // Если дата в формате YYYY-MM-DD, преобразуем в DD.MM.YYYY
-            if (label && label.match(/^\d{4}-\d{2}-\d{2}$/)) {
-              const [year, month, day] = label.split('-')
-              return `${day}.${month}.${year}`
+      tooltip: {
+        callbacks: {
+          // Правильно определяем label в зависимости от типа диаграммы
+          label: function(context) {
+            if (isHorizontal) {
+              // Для горизонтальной диаграммы значение находится по оси X
+              return `${context.dataset.label}: ${context.parsed.x}`
+            } else {
+              // Для вертикальной диаграммы значение находится по оси Y
+              return `${context.dataset.label}: ${context.parsed.y}`
             }
+          },
+          title: function(context) {
+            // Для заголовка всегда используем label
+            return context[0].label
           }
-          return this.getLabelForValue(value)
+        },
+        // Для лучшего отображения
+        displayColors: true,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1
+      }
+    },
+    onClick: (event, elements) => {
+      if (elements.length > 0) {
+        const index = elements[0].index
+        const label = props.chartData.labels[index]
+        
+        if (props.chartType === 'topics') {
+          emit('topicClick', label)
+        } else {
+          emit('dateClick', label)
         }
+      }
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: isHorizontal ? 'Количество постов' : (props.chartType === 'dates' ? 'Даты' : 'Темы')
+        },
+        ticks: {
+          precision: 0, // Целые числа
+          // Для горизонтальной диаграммы (темы) на оси X отображаются количества
+          // Для вертикальной диаграммы (даты) на оси X отображаются даты
+          callback: function(value) {
+            if (!isHorizontal && props.chartType === 'dates') {
+              const label = this.getLabelForValue(value)
+              if (label && label.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const [year, month, day] = label.split('-')
+                return `${day}.${month}`
+              }
+            }
+            return this.getLabelForValue(value)
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: isHorizontal ? 'Темы' : 'Количество постов'
+        },
+        ticks: {
+          // Для вертикальной диаграммы (даты) на оси Y отображаются количества
+          // Для горизонтальной диаграммы (темы) на оси Y отображаются названия тем
+          autoSkip: !isHorizontal, // Для тем не пропускаем подписи
+          maxTicksLimit: isHorizontal ? undefined : 20,
+          maxRotation: isHorizontal ? 0 : 45,
+          minRotation: isHorizontal ? 0 : 0,
+          font: {
+            size: isHorizontal ? 11 : 12
+          },
+          callback: function(value) {
+            if (isHorizontal) {
+              const label = this.getLabelForValue(value)
+              // Для тем: обрезаем слишком длинные названия
+              if (label && label.length > 25) {
+                return label.substring(0, 22) + '...'
+              }
+            }
+            return this.getLabelForValue(value)
+          }
+        },
+        grid: {
+          display: !isHorizontal // Убираем сетку только для вертикальной оси в горизонтальной диаграмме
+        }
+      }
+    },
+    // Дополнительные настройки для лучшего отображения
+    layout: {
+      padding: {
+        left: 10,
+        right: 10,
+        top: 10,
+        bottom: 20
       }
     }
   }
-})
-
-// Обновляем options при изменении chartType
-watch(() => props.chartType, () => {
-  chartOptions.value.plugins.title.text = chartTitle.value
-  chartOptions.value.scales.x.title.text = xAxisTitle.value
+  
+  return options
 })
 </script>
 
 <style scoped>
 .posts-chart {
-  height: 400px;
+  /* Увеличиваем высоту для лучшего отображения тем */
+  height: 500px;
   margin-bottom: 20px;
 }
 
@@ -166,5 +206,12 @@ watch(() => props.chartType, () => {
 .chart-container {
   height: 100%;
   position: relative;
+  /* Добавляем возможность горизонтальной прокрутки */
+  min-width: 600px;
+}
+
+/* Для родительского контейнера добавьте */
+:deep(.chartjs-render-monitor) {
+  width: 100% !important;
 }
 </style>

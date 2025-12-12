@@ -50,9 +50,6 @@ class ChannelService:
                 channel_id=info["id"],
                 username=info["username"],
                 title=info["title"],
-                participants_count=info["participants_count"],
-                # При создании канала не устанавливаем last_post_id
-                # он будет определен при первом парсинге
             )
 
             channel = self.channel_repo.get_or_create_channel(data)

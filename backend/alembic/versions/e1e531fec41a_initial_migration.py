@@ -26,7 +26,6 @@ def upgrade() -> None:
     sa.Column('channel_id', sa.BigInteger(), nullable=False),
     sa.Column('username', sa.String(length=255), nullable=True),
     sa.Column('title', sa.String(length=512), nullable=False),
-    sa.Column('participants_count', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('last_parsed_at', sa.DateTime(timezone=True), nullable=True),

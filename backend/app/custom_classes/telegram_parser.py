@@ -53,7 +53,6 @@ class TelegramParser:
                 "id": entity.id,
                 "username": getattr(entity, "username", None),
                 "title": getattr(entity, "title", None),
-                "participants_count": getattr(entity, "participants_count", None),
                 "entity": entity,
             }
 

@@ -36,6 +36,7 @@ defineProps({
 <style scoped>
 .message-list-area {
   margin-top: 30px;
+  max-width: 1200px;
 }
 
 .loading, .empty {

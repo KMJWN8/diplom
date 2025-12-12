@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
 from typing import List
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.models.channel import Channel
-from app.schemas.channel import ChannelCreate
+from app.schemas.channel import ChannelCreate, ChannelResponse
 
 
 class ChannelRepository:
@@ -20,7 +20,6 @@ class ChannelRepository:
                 channel_id=data.channel_id,
                 username=data.username,
                 title=data.title,
-                participants_count=data.participants_count,
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
             )
@@ -29,7 +28,6 @@ class ChannelRepository:
                 set_={
                     "username": data.username,
                     "title": data.title,
-                    "participants_count": data.participants_count,
                     "updated_at": datetime.now(timezone.utc),
                 },
             )
@@ -42,9 +40,14 @@ class ChannelRepository:
 
         return channel
 
-    def get_all_channels(self) -> List[Channel]:
+    def get_all_channels(self) -> List[ChannelResponse]:
         result = self.session.execute(select(Channel))
         return result.scalars().all()
+    
+    def delete_channel(self, channel_id: int):
+        self.session.execute(delete(Channel).where(Channel.channel_id == channel_id))
+        self.session.commit()
+        return {"status": "ok"}
 
     def update_last_parsed(self, channel_id: int, when: datetime):
         self.session.execute(

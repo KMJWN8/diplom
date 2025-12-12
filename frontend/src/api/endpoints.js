@@ -27,6 +27,22 @@ export const postsApi = {
         date_to: dateTo
       }
     })
-  }
+  },
 
+  getChannels() {
+    return apiClient.get('/analytics/channels')
+  },
+
+  addChannel(channelLink) {
+    return apiClient.post('/channel', null, {
+      params: {
+        channel_link: channelLink
+      }
+    })
+  },
+  
+  deleteChannel(channelId) {
+    return apiClient.delete(`/analytics/channels/${channelId}`)
+  },
+  
 }

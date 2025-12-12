@@ -11,12 +11,10 @@ class ChannelBase(BaseModel):
 
 
 class ChannelCreate(ChannelBase):
-    participants_count: Optional[int] = None
-
+    pass
 
 class ChannelResponse(ChannelBase):
     id: int = Field(..., description="Внутренний ID в базе")
-    participants_count: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

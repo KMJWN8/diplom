@@ -18,7 +18,6 @@ class Channel(Base):
         String(255), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(512), nullable=False)
-    participants_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
