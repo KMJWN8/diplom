@@ -73,7 +73,7 @@ class PostRepository:
             .where(
                 and_(
                     func.date(Post.date) == date_param,
-                    Post.topic.contains([topic.value]),
+                    Post.topic.op('@>')([topic.value]),
                 )
             )
             .order_by(Post.date.desc())
