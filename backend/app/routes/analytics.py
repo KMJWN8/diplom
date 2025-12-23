@@ -67,11 +67,12 @@ async def get_posts_by_topic(
 @router.get("/posts-by-date-and-topic")
 async def get_posts_by_date_and_topic(
     topic: PostTopic = PostTopic.UNCLASSIFIED,
-    date: date = Query(..., description="Дата в формате YYYY-MM-DD"),
+    date_from: date = Query(..., description="Дата в формате YYYY-MM-DD"),
+    date_to: date = Query(..., description="Дата в формате YYYY-MM-DD"),
     db: Session = Depends(get_session),
 ) -> List[PostResponse]:
     repo = PostRepository(db)
-    posts = repo.get_posts_by_topic_and_date(topic, date)
+    posts = repo.get_posts_by_topic_and_date(topic, date_from, date_to)
 
     return posts
 

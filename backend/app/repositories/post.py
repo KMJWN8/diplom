@@ -65,14 +65,14 @@ class PostRepository:
         return self._execute_query_to_responses(query)
 
     def get_posts_by_topic_and_date(
-        self, topic: PostTopic, date_param: date
+        self, topic: PostTopic, date_from: date, date_to: date
     ) -> List[PostResponse]:
         query = (
             select(Post)
             .options(joinedload(Post.channel))
             .where(
                 and_(
-                    func.date(Post.date) == date_param,
+                    Post.date.between(date_from, date_to),
                     Post.topic.op('@>')([topic.value]),
                 )
             )

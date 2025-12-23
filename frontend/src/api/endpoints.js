@@ -20,7 +20,7 @@ export const postsApi = {
   },
 
   getPostsByTopic(topic, dateFrom, dateTo) {
-    return apiClient.get('/analytics/posts-by-topic', {
+    return apiClient.get('/analytics/posts-by-date-and-topic', {
       params: {
         topic: topic,
         date_from: dateFrom,
