@@ -1,8 +1,19 @@
 <template>
-  <div class="posts-chart">
-    <div v-if="loading" class="loading">Загрузка диаграммы...</div>
-    <div v-else-if="!hasData" class="no-data">Нет данных для отображения</div>
-    <div v-else class="chart-container">
+  <div class="posts-chart" :class="{ 'is-loading': loading, 'has-no-data': !hasData }">
+    <!-- Состояние загрузки -->
+    <div v-if="loading" class="chart-state loading">
+      <div class="spinner"></div>
+      <span>Загрузка диаграммы...</span>
+    </div>
+    
+    <!-- Состояние без данных -->
+    <div v-else-if="!hasData" class="chart-state empty">
+      <div class="empty-icon">📊</div>
+      <p>Нет данных для отображения</p>
+    </div>
+    
+    <!-- Диаграмма с данными -->
+    <div v-else class="chart-content">
       <Bar 
         :data="chartData" 
         :options="chartOptions"
@@ -13,24 +24,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { Bar } from 'vue-chartjs'
-import { 
-  Chart as ChartJS, 
-  Title, 
-  Tooltip, 
-  Legend, 
-  BarElement, 
-  CategoryScale, 
-  LinearScale 
-} from 'chart.js'
 
-// Регистрируем компоненты Chart.js
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+// Импорт композаблов
+import { useChartConfiguration } from '@/composables/useChartConfiguration'
+import { useChartValidation } from '@/composables/useChartValidation'
 
+// Props
 const props = defineProps({
   chartData: {
     type: Object,
+    required: true,
     default: () => ({ labels: [], datasets: [] })
   },
   loading: {
@@ -39,179 +44,131 @@ const props = defineProps({
   },
   chartType: {
     type: String,
-    default: 'topics' // 'topics' или 'dates'
+    default: 'topics',
+    validator: (value) => ['topics', 'dates'].includes(value)
   }
 })
 
+// Emits
 const emit = defineEmits(['topicClick', 'dateClick'])
 
+// Refs
 const chartRef = ref(null)
 
-// Проверяем есть ли данные для отображения
-const hasData = computed(() => {
-  return props.chartData && 
-         props.chartData.labels && 
-         props.chartData.labels.length > 0 &&
-         props.chartData.datasets &&
-         props.chartData.datasets.length > 0 &&
-         props.chartData.datasets[0].data &&
-         props.chartData.datasets[0].data.length > 0
+// Композаблы
+const { chartOptions, isHorizontal } = useChartConfiguration(props, emit)
+const { hasData, isValidData, totalItems } = useChartValidation(props)
+
+// Методы
+const updateChart = () => {
+  if (chartRef.value?.chart) {
+    chartRef.value.chart.update('none') // 'none' для отключения анимации
+  }
+}
+
+const destroyChart = () => {
+  if (chartRef.value?.chart) {
+    chartRef.value.chart.destroy()
+  }
+}
+
+// Наблюдатели
+watch(() => props.chartData, () => {
+  if (hasData.value) {
+    nextTick(updateChart)
+  }
+}, { deep: true })
+
+watch(() => props.chartType, () => {
+  // Принудительное обновление при смене типа
+  nextTick(updateChart)
 })
 
-// Основные настройки графика
-const chartOptions = computed(() => {
-  const isHorizontal = props.chartType === 'topics'
-  
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    indexAxis: isHorizontal ? 'y' : 'x', // Горизонтальная для тем
-    plugins: {
-      legend: {
-        display: false
-      },
-      title: {
-        display: true,
-        text: isHorizontal ? 'Количество постов по темам' : 'Количество постов по датам'
-      },
-      tooltip: {
-        callbacks: {
-          // Правильно определяем label в зависимости от типа диаграммы
-          label: function(context) {
-            if (isHorizontal) {
-              // Для горизонтальной диаграммы значение находится по оси X
-              return `${context.dataset.label}: ${context.parsed.x}`
-            } else {
-              // Для вертикальной диаграммы значение находится по оси Y
-              return `${context.dataset.label}: ${context.parsed.y}`
-            }
-          },
-          title: function(context) {
-            // Для заголовка всегда используем label
-            return context[0].label
-          }
-        },
-        // Для лучшего отображения
-        displayColors: true,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1
-      }
-    },
-    onClick: (event, elements) => {
-      if (elements.length > 0) {
-        const index = elements[0].index
-        const label = props.chartData.labels[index]
-        
-        if (props.chartType === 'topics') {
-          emit('topicClick', label)
-        } else {
-          emit('dateClick', label)
-        }
-      }
-    },
-    scales: {
-      x: {
-        beginAtZero: true,
-        title: {
-          display: true,
-          text: isHorizontal ? 'Количество постов' : (props.chartType === 'dates' ? 'Даты' : 'Темы')
-        },
-        ticks: {
-          precision: 0, // Целые числа
-          // Для горизонтальной диаграммы (темы) на оси X отображаются количества
-          // Для вертикальной диаграммы (даты) на оси X отображаются даты
-          callback: function(value) {
-            if (!isHorizontal && props.chartType === 'dates') {
-              const label = this.getLabelForValue(value)
-              if (label && label.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                const [year, month, day] = label.split('-')
-                return `${day}.${month}`
-              }
-            }
-            return this.getLabelForValue(value)
-          }
-        },
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)'
-        }
-      },
-      y: {
-        title: {
-          display: true,
-          text: isHorizontal ? 'Темы' : 'Количество постов'
-        },
-        ticks: {
-          // Для вертикальной диаграммы (даты) на оси Y отображаются количества
-          // Для горизонтальной диаграммы (темы) на оси Y отображаются названия тем
-          autoSkip: !isHorizontal, // Для тем не пропускаем подписи
-          maxTicksLimit: isHorizontal ? undefined : 20,
-          maxRotation: isHorizontal ? 0 : 45,
-          minRotation: isHorizontal ? 0 : 0,
-          font: {
-            size: isHorizontal ? 11 : 12
-          },
-          callback: function(value) {
-            if (isHorizontal) {
-              const label = this.getLabelForValue(value)
-              // Для тем: обрезаем слишком длинные названия
-              if (label && label.length > 25) {
-                return label.substring(0, 22) + '...'
-              }
-            }
-            return this.getLabelForValue(value)
-          }
-        },
-        grid: {
-          display: !isHorizontal // Убираем сетку только для вертикальной оси в горизонтальной диаграмме
-        }
-      }
-    },
-    // Дополнительные настройки для лучшего отображения
-    layout: {
-      padding: {
-        left: 10,
-        right: 10,
-        top: 10,
-        bottom: 20
-      }
-    }
-  }
-  
-  return options
+// Хуки жизненного цикла
+import { onUnmounted } from 'vue'
+onUnmounted(destroyChart)
+
+// Экспортируем методы
+defineExpose({
+  updateChart,
+  destroyChart,
+  getChart: () => chartRef.value?.chart
 })
 </script>
 
 <style scoped>
 .posts-chart {
-  /* Увеличиваем высоту для лучшего отображения тем */
   height: 500px;
-  margin-bottom: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-.loading, .no-data {
-  text-align: center;
-  padding: 40px;
-  color: #666;
-  background: #f8f9fa;
-  border-radius: 8px;
+.chart-state {
+  height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  color: #666;
 }
 
-.chart-container {
-  height: 100%;
-  position: relative;
-  /* Добавляем возможность горизонтальной прокрутки */
-  min-width: 600px;
+.chart-state.loading {
+  background: linear-gradient(90deg, #f8f9fa 25%, #e9ecef 50%, #f8f9fa 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
 }
 
-/* Для родительского контейнера добавьте */
-:deep(.chartjs-render-monitor) {
-  width: 100% !important;
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.chart-state.empty {
+  background: #f8f9fa;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.chart-state.empty p {
+  margin: 0;
+  font-size: 16px;
+  color: #6c757d;
+}
+
+.chart-content {
+  height: 100%;
+  padding: 20px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .posts-chart {
+    height: 400px;
+  }
+  
+  .chart-content {
+    padding: 10px;
+  }
 }
 </style>
