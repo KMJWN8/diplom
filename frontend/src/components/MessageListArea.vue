@@ -47,7 +47,7 @@
       
       <div class="items-per-page">
         <label>На странице:</label>
-        <Dropdown 
+        <Select 
           v-model="itemsPerPage"
           :options="[5, 10, 20, 50, 100]"
           @change="handleItemsPerPageChange"
@@ -70,11 +70,21 @@
           <span class="post-id">#{{ post.post_id }}</span>
           <span class="post-date">{{ formatDate(post.date) }}</span>
         </div>
+        <div class="post-header-right">
+          <Button 
+            @click.stop="$emit('toggle-selection', post)"
+            :icon="post.isSelected ? 'pi pi-star-fill' : 'pi pi-star'"
+            :severity="post.isSelected ? 'warning' : 'secondary'"
+            text
+            rounded
+            :title="post.isSelected ? 'Убрать из отчета' : 'Добавить в отчет'"
+          />
+        </div>
         <div class="post-message">{{ post.message }}</div>
         <div class="post-stats">
           <span>👁️ {{ post.views }}</span>
           <span>💬 {{ post.comments_count }}</span>
-          <span class="topic">{{ post.topic }}</span>
+          <span class="topic">{{ formatTopicToHashtag(post.topic) }}</span>
         </div>
       </div>
     </div>
@@ -111,7 +121,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import Button from 'primevue/button'
-import Dropdown from 'primevue/dropdown'
+import { Select } from 'primevue'
+import { usePosts } from '@/composables/usePosts'
 
 const props = defineProps({
   posts: {
@@ -123,6 +134,8 @@ const props = defineProps({
     default: false
   }
 })
+
+const { formatTopicToHashtag } = usePosts()
 
 // Состояния пагинации
 const currentPage = ref(1)
@@ -143,6 +156,8 @@ const endItem = computed(() => {
   const end = currentPage.value * itemsPerPage.value
   return end > totalItems.value ? totalItems.value : end
 })
+
+const emit = defineEmits(['toggle-selection'])
 
 // Видимые номера страниц (с эллипсисом)
 const visiblePages = computed(() => {
@@ -310,11 +325,24 @@ watch(totalPages, (newTotal) => {
 .post-header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 10px;
   font-size: 14px;
   color: #666;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.post-header-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.post-header-right {
+  display: flex;
+  align-items: center;
 }
 
 .channel-name {

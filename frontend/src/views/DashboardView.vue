@@ -2,6 +2,7 @@
 import Button from 'primevue/button';
 import MessageListArea from '@/components/MessageListArea.vue';
 import PostsChart from '@/components/PostsChart.vue';
+import SelectedPostsPanel from '@/components/SelectedPostsPanel.vue';
 import { ref, onMounted, watch, computed } from 'vue';
 
 import { usePosts } from '@/composables/usePosts'
@@ -79,6 +80,68 @@ const loadChartData = async () => {
 const refreshChart = () => {
   loadChartData()
   resetAll()
+}
+
+// Добавляем состояние для выбранных постов
+const selectedPosts = ref([])
+
+// Добавляем методы для работы с выбранными постами
+const togglePostSelection = (post) => {
+  const index = selectedPosts.value.findIndex(p => p.id === post.id)
+  
+  if (index > -1) {
+    // Удаляем пост, если уже выбран
+    selectedPosts.value.splice(index, 1)
+    // Обновляем свойство isSelected в основном списке
+    const mainPostIndex = posts.value.findIndex(p => p.id === post.id)
+    if (mainPostIndex > -1) {
+      posts.value[mainPostIndex].isSelected = false
+    }
+  } else {
+    // Добавляем пост в выборку
+    selectedPosts.value.push({
+      ...post,
+      isSelected: true
+    })
+    // Обновляем свойство isSelected в основном списке
+    const mainPostIndex = posts.value.findIndex(p => p.id === post.id)
+    if (mainPostIndex > -1) {
+      posts.value[mainPostIndex].isSelected = true
+    }
+  }
+}
+
+const removeFromSelection = (postId) => {
+  selectedPosts.value = selectedPosts.value.filter(post => post.id !== postId)
+  const mainPostIndex = posts.value.findIndex(p => p.id === postId)
+  if (mainPostIndex > -1) {
+    posts.value[mainPostIndex].isSelected = false
+  }
+}
+
+const clearSelection = () => {
+  selectedPosts.value.forEach(post => {
+    const mainPostIndex = posts.value.findIndex(p => p.id === post.id)
+    if (mainPostIndex > -1) {
+      posts.value[mainPostIndex].isSelected = false
+    }
+  })
+  selectedPosts.value = []
+}
+
+const generateReport = async (postsForReport) => {
+  console.log('Генерация отчета для постов:', postsForReport)
+  // Здесь реализация генерации отчета
+}
+
+const exportToExcel = async (postsForExport) => {
+  console.log('Экспорт в Excel:', postsForExport)
+  // Здесь реализация экспорта в Excel
+}
+
+const shareSelection = (postsForShare) => {
+  console.log('Поделиться выборкой:', postsForShare)
+  // Здесь реализация шеринга
 }
 
 // Хуки жизненного цикла
@@ -160,6 +223,16 @@ watch(dateRange, () => {
     <MessageListArea 
       :posts="posts"
       :loading="loading"
+      @toggle-selection="togglePostSelection"
+    />
+
+    <SelectedPostsPanel 
+      :selected-posts="selectedPosts"
+      @remove-post="removeFromSelection"
+      @clear-selection="clearSelection"
+      @generate-report="generateReport"
+      @export-excel="exportToExcel"
+      @share-selection="shareSelection"
     />
   </div>
 </template>

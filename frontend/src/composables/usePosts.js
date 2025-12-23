@@ -51,11 +51,72 @@ export function usePosts() {
     }
   }
 
+    const formatTopicToHashtag = (topic) => {
+    if (!topic) return ''
+    
+    // Если topic это массив
+    if (Array.isArray(topic)) {
+      return topic.map(t => `#${formatSingleTopic(t)}`).join(', ')
+    }
+    
+    // Если topic это строка с массивом
+    if (topic.startsWith('[') && topic.endsWith(']')) {
+      try {
+        const topicsArray = JSON.parse(topic)
+        if (Array.isArray(topicsArray)) {
+          return topicsArray.map(t => `#${formatSingleTopic(t)}`).join(', ')
+        }
+      } catch (e) {
+        // Если не удалось распарсить, обрабатываем как строку
+      }
+    }
+    
+    // Если это обычная строка
+    return `#${formatSingleTopic(topic)}`
+  }
+
+  const formatSingleTopic = (topic) => {
+    const translations = {
+    "environment": "Экология",
+    "manufacture": "Производство", 
+    "employment": "Занятость",
+    "financesandcredit": "Финансы и кредит",
+    "homeandinfrastructure": "Дом и инфраструктура",
+    "healthservice": "Здравоохранение",
+    "educationandsport": "Образование и спорт",
+    "socialsphere": "Социальная сфера",
+    "politics": "Политика",
+    "criminality": "Криминалистика",
+    "demographic": "Демография",
+    "unclassified": "Не классифицировано"
+  }
+
+    
+    // Удаляем кавычки
+    let cleanTopic = String(topic).replace(/["']/g, '')
+    
+    // Пытаемся найти перевод
+    if (translations[cleanTopic]) {
+      return translations[cleanTopic]
+    }
+    
+    // Или форматируем автоматически
+    return cleanTopic
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .replace(/and/g, ' & ')
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
+
   return {
     posts,
     loading,
     clearPosts,
     getPostsByDate,
-    getPostsByTopic
+    getPostsByTopic,
+    formatTopicToHashtag
   }
 }
