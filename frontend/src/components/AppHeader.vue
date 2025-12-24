@@ -3,7 +3,7 @@
     <div class="container">
       <div class="header-content">
         <router-link to="/" class="logo">
-          TGlytics
+          ИС Проблемы в регионе
         </router-link>
         
         <nav class="nav-menu">

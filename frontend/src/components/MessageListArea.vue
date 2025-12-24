@@ -289,7 +289,7 @@ watch(totalPages, (newTotal) => {
 }
 
 .per-page-dropdown {
-  width: 80px;
+  width: 85px;
 }
 
 /* Стили для списка постов */
