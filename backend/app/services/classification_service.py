@@ -11,7 +11,7 @@ class ClassificationService:
 
     def __init__(
         self,
-        model_path: str = "/home/saryglar311/Projects/DIPLOM/backend/app/ml/LR/logistic_regression_model_russian.pkl",
+        model_path: str = "/home/saryglar311/Projects/DIPLOM/backend/app/ml/LR/logistic_regression_model_topics.pkl",
     ):
         self.model = None
         self.vectorizer = None

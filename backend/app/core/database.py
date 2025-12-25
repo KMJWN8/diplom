@@ -5,7 +5,7 @@ from .config import settings
 
 DATABASE_URL = f"postgresql+psycopg2://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, echo=True)
 
 session_maker = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

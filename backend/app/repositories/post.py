@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from app.models.post import Post
 from app.schemas.post import PostCreate, PostResponse, PostTopic
 from app.services.classification_service import classification_service
+from app.services.binary_classif_service import binary_classification_service
 from sqlalchemy import and_, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, joinedload
@@ -25,7 +26,9 @@ class PostRepository:
         dicts = []
         for p in posts:
             predicted_topics = classification_service.predict_topics(p.message)
-            
+
+            problem_prediction = binary_classification_service(p.message)
+
             dicts.append(
                 {
                     "channel_id": p.channel_id,
@@ -35,6 +38,9 @@ class PostRepository:
                     "views": p.views,
                     "comments_count": p.comments_count,
                     "topic": predicted_topics,
+                    "is_problem": problem_prediction["is_problem"],
+                    "problem_probability": problem_prediction["probability"],
+                    "problem_confidence": problem_prediction["confidence"],
                     "created_at": datetime.now(timezone.utc),
                 }
             )
