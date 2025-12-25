@@ -80,6 +80,7 @@ class PostRepository:
                 and_(
                     Post.date.between(date_from, date_to),
                     Post.topic.op('@>')([topic.value]),
+                    Post.is_problem.is_(True)
                 )
             )
             .order_by(Post.date.desc())
@@ -90,7 +91,12 @@ class PostRepository:
         query = (
             select(Post)
             .options(joinedload(Post.channel))
-            .where(func.date(Post.date) == date_param)
+            .where(
+                and_(
+                    func.date(Post.date) == date_param,
+                    Post.is_problem.is_(True)
+                )
+            )
             .order_by(Post.date)
         )
         return self._execute_query_to_responses(query)
@@ -100,7 +106,12 @@ class PostRepository:
     ) -> List[Tuple[date, int]]:
         result = self.session.execute(
             select(func.date(Post.date), func.count(Post.id))
-            .where(Post.date.between(date_from, date_to))
+            .where(
+                and_(
+                    Post.date.between(date_from, date_to),
+                    Post.is_problem.is_(True)
+                )
+            )
             .group_by(func.date(Post.date))
             .order_by(func.date(Post.date))
         )
@@ -119,6 +130,7 @@ class PostRepository:
                 FROM posts
                 WHERE date BETWEEN :date_from AND :date_to
                 AND topic != '[]'::jsonb  -- Исключаем пустые массивы
+                AND is_problem  
                 GROUP BY jsonb_array_elements_text(topic)
                 ORDER BY count DESC
             """
