@@ -76,3 +76,6 @@ class PostsByDateResponse(BaseModel):
 class PostsByTopicResponse(BaseModel):
     topics: List[str]
     counts: List[int]
+
+class Summary(BaseModel):
+    summary: str

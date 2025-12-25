@@ -3,6 +3,7 @@ from datetime import timedelta
 from celery import Celery
 
 import app.tasks.channel_cycle
+import app.tasks.summarizator
 from app.core.config import settings
 
 REDIS_URL = settings.REDIS_URL

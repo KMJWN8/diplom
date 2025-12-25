@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.parser import router as parser_router
 from app.routes.analytics import router as analytics_router
+from app.routes.summarization import router as summarization_router
 
 app = FastAPI(title="Telegram Parser API")
 
@@ -16,3 +17,4 @@ app.add_middleware(
 
 app.include_router(parser_router)
 app.include_router(analytics_router)
+app.include_router(summarization_router)
