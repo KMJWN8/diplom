@@ -1,5 +1,7 @@
-from typing import Dict
+from typing import Dict, Optional, Any
 import joblib
+import traceback
+import numpy as np
 
 
 class BinaryClassificationService:
@@ -21,13 +23,61 @@ class BinaryClassificationService:
         
         print(f"Модель загружена. Тип: {type(self.model)}")
         print(f"Шаги пайплайна: {list(self.model.named_steps.keys())}")
+        
+        # Получаем классификатор для диагностики
+        self.classifier = self.model.named_steps['clf']
+        print(f"Классы классификатора: {self.classifier.classes_}")
     
-    def predict(self, text: str, threshold: float = None) -> Dict:
+    def _safe_predict_proba(self, text: str):
+        """Безопасное получение вероятностей с обходом ошибки multi_class"""
+        try:
+            # Пробуем стандартный способ
+            return self.model.predict_proba([text])[0]
+        except AttributeError as e:
+            if "'multi_class'" in str(e):
+                print("Обнаружена ошибка с multi_class, используем обходной путь")
+                
+                # Обходной путь 1: Используем decision_function если доступен
+                if hasattr(self.classifier, 'decision_function'):
+                    try:
+                        # Получаем текстовый вектор через TF-IDF
+                        vectorizer = self.model.named_steps['tfidf']
+                        text_vec = vectorizer.transform([text])
+                        decision = self.classifier.decision_function(text_vec)[0]
+                        
+                        # Преобразуем decision function в вероятность
+                        # Для бинарной классификации используем сигмоиду
+                        prob = 1 / (1 + np.exp(-decision))
+                        
+                        if len(self.classifier.classes_) == 2:
+                            # Для бинарной классификации
+                            return np.array([1 - prob, prob])
+                        else:
+                            return np.array([prob])
+                    except Exception as e:
+                        print(f"Ошибка в decision_function: {e}")
+                
+                # Обходной путь 2: Используем predict и возвращаем бинарные вероятности
+                prediction = self.model.predict([text])[0]
+                
+                if len(self.classifier.classes_) == 2:
+                    # Для бинарной классификации
+                    if prediction == 1:
+                        return np.array([0.0, 1.0])
+                    else:
+                        return np.array([1.0, 0.0])
+                else:
+                    # Для многоклассовой
+                    probs = np.zeros(len(self.classifier.classes_))
+                    probs[prediction] = 1.0
+                    return probs
+            else:
+                # Если это не ошибка multi_class, пробрасываем дальше
+                raise
+    
+    def predict(self, text: str, threshold: Optional[float] = None) -> Dict[str, Any]:
         """
         Предсказывает, является ли текст проблемой
-        
-        ВАЖНО: Не делаем предобработку, так как она уже встроена в Pipeline!
-        Pipeline сам делает: текстовую предобработку → TF-IDF → классификацию
         """
         if threshold is None:
             threshold = self.threshold
@@ -37,51 +87,54 @@ class BinaryClassificationService:
             "probability": 0.0,
             "confidence": 0.0,
             "prediction_label": "Не проблема",
-            "raw_text": text[:100] + "..." if len(text) > 100 else text  # Для отладки
+            "error": None
         }
         
         if not text or not text.strip():
             return result
             
         try:
-            # ВАЖНО: Pipeline ожидает сырой текст!
-            # Он сам вызовет TfidfVectorizer, который сделает свою предобработку
+            # Используем безопасный метод получения вероятностей
+            proba = self._safe_predict_proba(text)
             
-            # Получаем вероятности
-            proba = self.model.predict_proba([text])[0]
-            
-            # Предполагаем, что классы: [0, 1] где 1 = "Проблема"
-            # Проверим порядок классов
-            classes = self.model.named_steps['clf'].classes_
-            if len(classes) == 2:
-                # Находим индекс класса "Проблема" (скорее всего 1)
-                problem_class_index = 1 if classes[1] == 1 else 0
-                problem_prob = proba[problem_class_index]
+            # Определяем вероятность для класса "Проблема"
+            if len(proba) == 2:
+                # Бинарная классификация: [вероятность класса 0, вероятность класса 1]
+                # Предполагаем, что класс 1 = "Проблема"
+                problem_prob = proba[1]
+                problem_class_index = 1
             else:
-                problem_prob = proba[1] if len(proba) > 1 else proba[0]
+                # Если только одна вероятность, используем её
+                problem_prob = proba[0]
+                problem_class_index = 0
             
             # Классификация по порогу
-            prediction = 1 if problem_prob >= threshold else 0
+            prediction = problem_class_index if problem_prob >= threshold else (1 - problem_class_index)
             
-            # Заполняем результат
-            result["is_problem"] = bool(prediction)
-            result["probability"] = float(problem_prob)
-            result["confidence"] = abs(problem_prob - 0.5) * 2
-            result["prediction_label"] = "Проблема" if prediction == 1 else "Не проблема"
+            # Заполняем результат - ВАЖНО: конвертируем numpy типы в стандартные Python типы!
+            result["is_problem"] = bool(prediction == problem_class_index)
+            result["probability"] = float(problem_prob)  # Конвертируем np.float64 в float
+            result["confidence"] = float(abs(problem_prob - 0.5) * 2)  # Конвертируем np.float64 в float
+            result["prediction_label"] = "Проблема" if prediction == problem_class_index else "Не проблема"
             
-            # Для отладки: посмотрим, как Pipeline обработал текст
-            print(f"Текст: {text[:50]}...")
-            print(f"Вероятность проблемы: {problem_prob:.4f}")
-            print(f"Предсказание: {result['prediction_label']}")
             
         except Exception as e:
-            print(f"Ошибка при предсказании: {e}")
-            import traceback
+            error_msg = str(e)
             traceback.print_exc()
+            
+            # Если всё падает, используем простое предсказание
+            try:
+                prediction = self.model.predict([text])[0]
+                result["is_problem"] = bool(prediction == 1)
+                result["probability"] = 1.0 if result["is_problem"] else 0.0
+                result["prediction_label"] = "Проблема" if result["is_problem"] else "Не проблема"
+                result["error"] = f"Использовано простое предсказание после ошибки: {error_msg}"
+            except:
+                result["error"] = error_msg
             
         return result
     
-    def get_top_features(self, text: str, top_n: int = 10) -> Dict:
+    def get_top_features(self, text: str, top_n: int = 10) -> Dict[str, Any]:
         """
         Получает наиболее важные признаки для классификации текста
         """
@@ -93,25 +146,23 @@ class BinaryClassificationService:
         
         try:
             # Проверяем, что модель имеет нужные атрибуты
-            if not hasattr(self.model.named_steps['clf'], 'coef_'):
-                print("Модель не имеет коэффициентов для анализа признаков")
+            if not hasattr(self.classifier, 'coef_'):
                 return result
             
-            # Получаем векторизатор и классификатор из Pipeline
+            # Получаем векторизатор
             vectorizer = self.model.named_steps['tfidf']
-            classifier = self.model.named_steps['clf']
             
-            # Преобразуем текст в вектор (так же, как при предсказании)
+            # Преобразуем текст в вектор
             text_vec = vectorizer.transform([text])
             
             # Получаем имена признаков и коэффициенты
             feature_names = vectorizer.get_feature_names_out()
-            coefficients = classifier.coef_[0]
+            coefficients = self.classifier.coef_[0]
             
             # Находим ненулевые признаки в тексте
             nonzero_indices = text_vec.nonzero()[1]
             
-            # Собираем признаки
+            # Собираем признаки - ВАЖНО: конвертируем numpy типы
             text_features = []
             for idx in nonzero_indices:
                 feature_name = feature_names[idx]
@@ -121,9 +172,9 @@ class BinaryClassificationService:
                 
                 text_features.append({
                     'feature': feature_name,
-                    'weight': float(weight),
-                    'importance': float(importance),
-                    'tfidf_value': float(tfidf_value)
+                    'weight': float(weight),  # Конвертируем np.float64 в float
+                    'importance': float(importance),  # Конвертируем np.float64 в float
+                    'tfidf_value': float(tfidf_value)  # Конвертируем np.float64 в float
                 })
             
             # Сортируем по абсолютной важности
@@ -147,10 +198,10 @@ class BinaryClassificationService:
             
         except Exception as e:
             print(f"Ошибка при получении топ-признаков: {e}")
-            import traceback
             traceback.print_exc()
             
         return result
+
 
 # Создаем глобальный экземпляр
 binary_classification_service = BinaryClassificationService()

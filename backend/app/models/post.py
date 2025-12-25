@@ -9,7 +9,10 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Text,
+    Boolean,
+    Float,
     UniqueConstraint,
+    Index,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,10 +35,21 @@ class Post(Base):
     )
     views: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     comments_count: Mapped[int] = mapped_column(Integer, default=0)
+
     topic: Mapped[JSONB] = mapped_column(JSONB, default=list, nullable=False)
+    is_problem: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    problem_probability: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    problem_confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -43,6 +57,12 @@ class Post(Base):
 
     __table_args__ = (
         UniqueConstraint("channel_id", "post_id", name="uq_channel_post"),
+        Index("idx_post_date", "date"),
+        Index("idx_post_is_problem", "is_problem"),
+        Index("idx_post_problem_probability", "problem_probability"),
+        Index("idx_post_topic", "topic", postgresql_using="gin"),
+        Index("idx_post_channel_date", "channel_id", "date"),
+        Index("idx_post_updated_at", "updated_at"),
     )
 
     def to_response(self) -> PostResponse:
@@ -56,5 +76,9 @@ class Post(Base):
             views=self.views,
             comments_count=self.comments_count,
             topic=[PostTopic(t) for t in self.topic],
+            is_problem=self.is_problem,
+            problem_probability=self.problem_probability,
+            problem_confidence=self.problem_confidence,
             created_at=self.created_at,
+            updated_at=self.updated_at,
         )

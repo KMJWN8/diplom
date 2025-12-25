@@ -27,7 +27,7 @@ class PostRepository:
         for p in posts:
             predicted_topics = classification_service.predict_topics(p.message)
 
-            problem_prediction = binary_classification_service(p.message)
+            problem_prediction = binary_classification_service.predict(p.message)
 
             dicts.append(
                 {

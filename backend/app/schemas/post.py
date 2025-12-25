@@ -2,7 +2,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 
 
 class PostTopic(str, Enum):
@@ -54,7 +54,19 @@ class PostResponse(PostCreate):
     id: int
     created_at: datetime
     channel_name: Optional[str] = None
-
+    is_problem: bool = Field(default=False, description="Является ли пост проблемой")
+    problem_probability: float = Field(
+        default=0.0, 
+        ge=0.0, 
+        le=1.0, 
+        description="Вероятность того, что это проблема"
+    )
+    problem_confidence: float = Field(
+        default=0.0, 
+        ge=0.0, 
+        le=1.0, 
+        description="Уверенность модели в предсказании"
+    )
     model_config = ConfigDict(from_attributes=True)
 
 class PostsByDateResponse(BaseModel):
