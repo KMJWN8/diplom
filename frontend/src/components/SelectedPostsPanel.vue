@@ -8,6 +8,18 @@
       </div>
       <div class="header-right">
         <Button 
+          @click="exportToWord"
+          :disabled="selectedPosts.length === 0 || isExporting"
+          :loading="isExporting"
+          icon="pi pi-file-word"
+          severity="help"
+          outlined
+          size="small"
+          label="Выгрузить в Word"
+          class="header-action-btn"
+          :title="'Экспортировать ' + selectedPosts.length + ' постов в Word'"
+        />
+        <Button 
           @click="$emit('clear-selection')"
           icon="pi pi-trash"
           severity="danger"
@@ -47,7 +59,7 @@
           <Button 
             @click="generateSummary"
             :loading="loading"
-            :disabled="loading || selectedPosts.length === 0 || isTextTooLong || isTextTooShort"
+            :disabled="loading || selectedPosts.length === 0 || isTextTooLong || isTextTooShort || isExporting"
             icon="pi pi-compress"
             :label="buttonLabel"
             severity="primary"
@@ -125,9 +137,9 @@
     </div>
     
     <!-- Диалог загрузки -->
-    <div v-if="loading" class="loading-overlay">
+    <div v-if="loading || isExporting" class="loading-overlay">
       <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
-      <p>Суммаризация текста...</p>
+      <p>{{ isExporting ? 'Экспорт в Word...' : 'Суммаризация текста...' }}</p>
     </div>
   </div>
 </template>
@@ -159,6 +171,7 @@ const MIN_TEXT_LENGTH = 50
 // Состояния для суммаризации
 const summary = ref('')
 const loading = ref(false)
+const isExporting = ref(false)
 const error = ref(null)
 
 // Вычисляемые свойства
@@ -179,6 +192,8 @@ const isTextTooShort = computed(() => {
 })
 
 const buttonLabel = computed(() => {
+  if (isExporting.value) return 'Экспорт в Word...'
+  if (loading.value) return 'Суммаризация...'
   if (isTextTooLong.value) return 'Текст слишком длинный'
   if (isTextTooShort.value) return 'Текст слишком короткий'
   return 'Суммаризировать выбранные посты'
@@ -266,21 +281,204 @@ const generateSummary = async () => {
   }
 }
 
-// Функция для усечения текста, если он слишком длинный
-const truncateIfNeeded = (text, maxLength = MAX_TEXT_LENGTH) => {
-  if (!text || text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '... [текст усечен]'
+// Функция для экспорта в Word на фронтенде (упрощенная версия)
+const exportToWord = async () => {
+  if (props.selectedPosts.length === 0) return
+  
+  isExporting.value = true
+  error.value = null
+
+  try {
+    // Создаем HTML документ с минимальным форматированием
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Telegram посты</title>
+        <style>
+          body { 
+            font-family: 'Times New Roman', Times, serif; 
+            margin: 2cm; 
+            font-size: 12pt; 
+            line-height: 1.5;
+          }
+          h1 { 
+            text-align: center; 
+            font-size: 16pt;
+            margin-bottom: 20px;
+          }
+          .post { 
+            margin: 25px 0; 
+            page-break-inside: avoid;
+          }
+          .post-header { 
+            margin-bottom: 10px;
+            border-bottom: 1px solid #cccccc;
+            padding-bottom: 5px;
+          }
+          .post-meta { 
+            font-size: 11pt; 
+            color: #666666;
+            margin-bottom: 8px;
+          }
+          .post-text { 
+            margin: 10px 0; 
+            line-height: 1.6;
+            text-align: justify;
+          }
+          .divider { 
+            border-top: 1px solid #cccccc; 
+            margin: 20px 0;
+          }
+          .summary { 
+            margin: 20px 0;
+            font-style: italic;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>TELEGRAM ПОСТЫ</h1>
+    `
+    
+    // Добавляем суммаризацию если есть
+    if (summary.value) {
+      htmlContent += `
+        <div class="summary">
+          <strong>Суммаризация:</strong><br>
+          ${summary.value}
+        </div>
+      `
+    }
+    
+    // Добавляем посты
+    props.selectedPosts.forEach((post, index) => {
+      const postText = post.message || ''
+      
+      htmlContent += `
+        <div class="post">
+          <div class="post-header">
+            <div class="post-meta">
+              <strong>Пост ${index + 1}</strong> | 
+              Канал: ${post.channel_name || 'Неизвестно'} | 
+              Дата: ${formatDate(post.date)} | 
+              Тема: #${formatTopicToHashtag(post.topic)}
+            </div>
+          </div>
+      `
+      
+      if (postText) {
+        // Разбиваем текст на абзацы
+        const paragraphs = postText.split('\n').filter(p => p.trim())
+        if (paragraphs.length > 0) {
+          paragraphs.forEach(paragraph => {
+            htmlContent += `<div class="post-text">${paragraph}</div>`
+          })
+        } else {
+          htmlContent += `<div class="post-text">${postText}</div>`
+        }
+      } else {
+        htmlContent += '<div class="post-text"><em>Текст поста отсутствует</em></div>'
+      }
+      
+      htmlContent += '</div>'
+      
+      // Добавляем разделитель между постами (кроме последнего)
+      if (index < props.selectedPosts.length - 1) {
+        htmlContent += '<div class="divider"></div>'
+      }
+    })
+    
+    // Простой футер
+    htmlContent += `
+        <div style="margin-top: 40px; text-align: right; font-size: 10pt; color: #888888;">
+          Сформировано: ${new Date().toLocaleDateString('ru-RU')}
+        </div>
+      </body>
+      </html>
+    `
+    
+    // Создаем Blob и скачиваем как .doc файл
+    const blob = new Blob([htmlContent], { 
+      type: 'application/msword' 
+    })
+    
+    // Создаем ссылку для скачивания
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    // Генерируем имя файла
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const fileName = `telegram_posts_${dateStr}.doc`
+    
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    
+    // Очищаем
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    
+    console.log(`Word документ успешно экспортирован: ${fileName}`)
+    
+  } catch (err) {
+    console.error('Ошибка при экспорте в Word:', err)
+    error.value = 'Ошибка при создании Word документа: ' + err.message
+    setTimeout(() => { error.value = null }, 5000)
+  } finally {
+    isExporting.value = false
+  }
+}
+
+// Вспомогательная функция для разбивки текста на абзацы
+const splitTextIntoParagraphs = (text, maxLength = 500) => {
+  if (!text) return []
+  
+  const paragraphs = []
+  let currentIndex = 0
+  
+  while (currentIndex < text.length) {
+    const chunk = text.slice(currentIndex, currentIndex + maxLength)
+    
+    // Пытаемся разбить по предложениям
+    const lastPeriod = chunk.lastIndexOf('.')
+    const lastExclamation = chunk.lastIndexOf('!')
+    const lastQuestion = chunk.lastIndexOf('?')
+    const lastNewLine = chunk.lastIndexOf('\n')
+    
+    const breakIndex = Math.max(lastPeriod, lastExclamation, lastQuestion, lastNewLine)
+    
+    if (breakIndex > 0 && currentIndex + breakIndex < text.length) {
+      paragraphs.push(chunk.slice(0, breakIndex + 1))
+      currentIndex += breakIndex + 1
+    } else {
+      paragraphs.push(chunk)
+      currentIndex += maxLength
+    }
+  }
+  
+  return paragraphs
 }
 
 // Вспомогательные функции
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  if (!dateString) return 'Неизвестно'
+  
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return dateString
+    
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch {
+    return dateString
+  }
 }
 
 const truncateText = (text, maxLength) => {
@@ -290,6 +488,7 @@ const truncateText = (text, maxLength) => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений, как у вас в коде */
 .selected-posts-panel {
   background: var(--white);
   border: 1px solid #e0e0e0;
@@ -329,6 +528,44 @@ const truncateText = (text, maxLength) => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Стили для кнопок в header */
+.header-action-btn {
+  transition: all 0.2s ease;
+  border-width: 1px !important;
+  backdrop-filter: blur(5px);
+  font-weight: 600;
+}
+
+/* Стиль для кнопки Word */
+.header-action-btn.p-button-help {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  color: #2196F3 !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.header-action-btn.p-button-help:hover:not(:disabled) {
+  background-color: #2196F3 !important;
+  color: white !important;
+  border-color: #2196F3 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3) !important;
+}
+
+/* Стиль для кнопки очистки */
+.header-action-btn.p-button-danger {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  color: #f44336 !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.header-action-btn.p-button-danger:hover:not(:disabled) {
+  background-color: #f44336 !important;
+  color: white !important;
+  border-color: #f44336 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
 }
 
 .panel-content {
@@ -575,21 +812,6 @@ const truncateText = (text, maxLength) => {
   font-weight: 500;
 }
 
-.header-action-btn {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  color: #f44336 !important;
-  border-color: rgba(255, 255, 255, 0.8) !important;
-  backdrop-filter: blur(5px);
-  font-weight: 600;
-}
-
-.header-action-btn:hover {
-  background-color: white !important;
-  border-color: white !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-}
-
 /* Адаптивность */
 @media (max-width: 768px) {
   .panel-header {
@@ -600,6 +822,10 @@ const truncateText = (text, maxLength) => {
   
   .header-left, .header-right {
     justify-content: center;
+  }
+  
+  .header-right {
+    flex-wrap: wrap;
   }
   
   .summarization-actions button {

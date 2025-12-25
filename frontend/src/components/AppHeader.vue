@@ -22,13 +22,6 @@
           >
             Дашборд
           </router-link>
-          <router-link 
-            to="/report" 
-            class="nav-link"
-            active-class="active"
-          >
-            Отчет
-          </router-link>
         </nav>
       </div>
     </div>
