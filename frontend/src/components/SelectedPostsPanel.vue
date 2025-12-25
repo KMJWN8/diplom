@@ -4,7 +4,7 @@
     <div class="panel-header">
       <div class="header-left">
         <i class="pi pi-folder-open" />
-        <h3>Выбранные посты для отчета ({{ selectedPosts.length }})</h3>
+        <h3>Выбранные посты для суммаризации ({{ selectedPosts.length }})</h3>
       </div>
       <div class="header-right">
         <Button 
@@ -19,8 +19,66 @@
       </div>
     </div>
 
-    <!-- Содержимое панели -->
+    <!-- Контент панели -->
     <div class="panel-content">
+      
+      <!-- Кнопка суммаризации -->
+      <div class="summarization-controls">
+        <div class="summarization-info">
+          <span class="info-text">
+            Выбрано постов: {{ selectedPosts.length }} 
+            ({{ combinedTextLength }} / {{ MAX_TEXT_LENGTH }} символов)
+          </span>
+          <span v-if="isTextTooLong" class="error-text">
+            <i class="pi pi-exclamation-triangle"></i>
+            Текст превышает лимит на {{ combinedTextLength - MAX_TEXT_LENGTH }} символов
+          </span>
+          <span v-else-if="isTextTooShort" class="warning-text">
+            <i class="pi pi-info-circle"></i>
+            Текст слишком короткий для суммаризации (минимум 50 символов)
+          </span>
+          <span v-else class="success-text">
+            <i class="pi pi-check-circle"></i>
+            Текст подходит для суммаризации
+          </span>
+        </div>
+        
+        <div class="summarization-actions">
+          <Button 
+            @click="generateSummary"
+            :loading="loading"
+            :disabled="loading || selectedPosts.length === 0 || isTextTooLong || isTextTooShort"
+            icon="pi pi-compress"
+            :label="buttonLabel"
+            severity="primary"
+            :title="buttonTooltip"
+          />
+        </div>
+      </div>
+
+      <!-- Превью суммаризации -->
+      <div v-if="summary" class="summary-preview">
+        <h4>Результат суммаризации ({{ summary.length }} символов):</h4>
+        <div class="summary-text">
+          {{ summary }}
+        </div>
+      </div>
+      
+      <!-- Сообщение об ошибке -->
+      <div v-if="error" class="error-message">
+        <i class="pi pi-exclamation-triangle"></i>
+        {{ error }}
+      </div>
+
+      <!-- Информация о лимитах -->
+      <div class="limits-info">
+        <p><strong>Ограничения суммаризации:</strong></p>
+        <ul>
+          <li>Максимальная длина текста: {{ MAX_TEXT_LENGTH }} символов</li>
+          <li>Минимальная длина текста: {{ MIN_TEXT_LENGTH }} символов</li>
+          <li>Текущая длина: {{ combinedTextLength }} символов</li>
+        </ul>
+      </div>
 
       <!-- Список выбранных постов -->
       <div class="selected-posts-list">
@@ -29,6 +87,9 @@
             <div class="post-info">
               <span class="channel-badge">{{ post.channel_name }}</span>
               <span class="post-id">#{{ post.post_id }}</span>
+              <span class="post-length">
+                {{ (post.message || '').length }} симв.
+              </span>
             </div>
             <div class="post-actions">
               <Button 
@@ -37,7 +98,7 @@
                 severity="danger"
                 text
                 size="small"
-                :title="'Удалить из отчета'"
+                :title="'Удалить из выборки'"
               />
             </div>
           </div>
@@ -47,7 +108,7 @@
           </div>
           
           <div class="post-preview">
-            {{ truncateText(post.message, 100) }}
+            {{ truncateText(post.message, 120) }}
           </div>
           
           <div class="post-meta">
@@ -61,24 +122,21 @@
           </div>
         </div>
       </div>
-
-      <!-- Действия с выбранными постами -->
-      <div class="panel-actions">
-        <Button 
-          @click="$emit('generate-report', selectedPosts)"
-          icon="pi pi-file-word"
-          label="Сгенерировать отчет"
-          severity="warning"
-        />
-      </div>
+    </div>
+    
+    <!-- Диалог загрузки -->
+    <div v-if="loading" class="loading-overlay">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+      <p>Суммаризация текста...</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import Button from 'primevue/button'
 import { usePosts } from '@/composables/usePosts'
+import apiClient from '@/api/client'
 
 const props = defineProps({
   selectedPosts: {
@@ -89,37 +147,130 @@ const props = defineProps({
 
 const emit = defineEmits([
   'remove-post',
-  'clear-selection',
-  'generate-report',
-  'export-excel'
+  'clear-selection'
 ])
 
 const { formatTopicToHashtag } = usePosts()
 
+// Константы для ограничений
+const MAX_TEXT_LENGTH = 4100
+const MIN_TEXT_LENGTH = 50
+
+// Состояния для суммаризации
+const summary = ref('')
+const loading = ref(false)
+const error = ref(null)
+
 // Вычисляемые свойства
-const uniqueChannels = computed(() => {
-  const channels = props.selectedPosts.map(post => post.channel_name)
-  return new Set(channels).size
+const combinedTextLength = computed(() => {
+  return props.selectedPosts
+    .map(post => post.message || '')
+    .filter(text => text.trim())
+    .join('\n\n')
+    .length
 })
 
-const uniqueTopics = computed(() => {
-  const topics = props.selectedPosts.map(post => post.topic)
-  return new Set(topics).size
+const isTextTooLong = computed(() => {
+  return combinedTextLength.value > MAX_TEXT_LENGTH
 })
 
-const dateRange = computed(() => {
-  if (props.selectedPosts.length === 0) return '-'
-  
-  const dates = props.selectedPosts.map(post => new Date(post.date))
-  const minDate = new Date(Math.min(...dates))
-  const maxDate = new Date(Math.max(...dates))
-  
-  if (minDate.toDateString() === maxDate.toDateString()) {
-    return minDate.toLocaleDateString('ru-RU')
+const isTextTooShort = computed(() => {
+  return combinedTextLength.value < MIN_TEXT_LENGTH
+})
+
+const buttonLabel = computed(() => {
+  if (isTextTooLong.value) return 'Текст слишком длинный'
+  if (isTextTooShort.value) return 'Текст слишком короткий'
+  return 'Суммаризировать выбранные посты'
+})
+
+const buttonTooltip = computed(() => {
+  if (isTextTooLong.value) {
+    return `Уменьшите количество выбранных постов. Максимум ${MAX_TEXT_LENGTH} символов`
+  }
+  if (isTextTooShort.value) {
+    return `Добавьте больше постов. Минимум ${MIN_TEXT_LENGTH} символов`
+  }
+  return `Суммаризировать ${combinedTextLength.value} символов`
+})
+
+// Функция для отправки на суммаризацию
+const generateSummary = async () => {
+  // Проверка лимитов перед отправкой
+  if (isTextTooLong.value) {
+    error.value = `Текст превышает лимит ${MAX_TEXT_LENGTH} символов. Уменьшите количество выбранных постов.`
+    setTimeout(() => { error.value = null }, 5000)
+    return
   }
   
-  return `${minDate.toLocaleDateString('ru-RU')} - ${maxDate.toLocaleDateString('ru-RU')}`
-})
+  if (isTextTooShort.value) {
+    error.value = `Текст слишком короткий (${combinedTextLength.value} символов). Минимум ${MIN_TEXT_LENGTH} символов.`
+    setTimeout(() => { error.value = null }, 5000)
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  summary.value = ''
+
+  try {
+    // Объединяем тексты постов
+    const combinedText = props.selectedPosts
+      .map(post => post.message || '')
+      .filter(text => text.trim())
+      .join('\n\n')
+    
+    // Дополнительная проверка (на всякий случай)
+    if (combinedText.length > MAX_TEXT_LENGTH) {
+      throw new Error(`Текст превышает максимальную длину ${MAX_TEXT_LENGTH} символов`)
+    }
+    
+    if (combinedText.length < MIN_TEXT_LENGTH) {
+      throw new Error(`Текст слишком короткий для суммаризации`)
+    }
+
+    console.log(`Отправка на суммаризацию: ${combinedText.length} символов`)
+    
+    // Отправляем на бэкенд
+    const response = await apiClient.post('/summarization/summarize', {
+      summary: combinedText
+    }, {
+      timeout: 60000 // 60 секунд таймаут
+    })
+
+    summary.value = response.data.summary
+    console.log(`Получен результат: ${summary.value.length} символов`)
+
+  } catch (err) {
+    console.error('Ошибка при суммаризации:', err)
+    
+    // Форматируем сообщение об ошибке
+    if (err.message.includes('timeout')) {
+      error.value = 'Таймаут запроса. Текст слишком длинный или сервер занят.'
+    } else if (err.message.includes('Network Error')) {
+      error.value = 'Ошибка сети. Проверьте соединение с сервером.'
+    } else if (err.response?.data?.message) {
+      error.value = err.response.data.message
+    } else if (err.response?.data?.detail) {
+      error.value = err.response.data.detail
+    } else {
+      error.value = err.message || 'Не удалось суммаризировать текст'
+    }
+    
+    // Показываем ошибку в течение 5 секунд
+    setTimeout(() => {
+      error.value = null
+    }, 5000)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Функция для усечения текста, если он слишком длинный
+const truncateIfNeeded = (text, maxLength = MAX_TEXT_LENGTH) => {
+  if (!text || text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '... [текст усечен]'
+}
 
 // Вспомогательные функции
 const formatDate = (dateString) => {
@@ -145,6 +296,7 @@ const truncateText = (text, maxLength) => {
   border-radius: 8px;
   margin-top: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
 }
 
 .panel-header {
@@ -152,7 +304,7 @@ const truncateText = (text, maxLength) => {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: var(--primary-light);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-radius: 8px 8px 0 0;
 }
@@ -183,8 +335,133 @@ const truncateText = (text, maxLength) => {
   padding: 20px;
 }
 
+/* Стили для суммаризации */
+.summarization-controls {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.summarization-info {
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.info-text {
+  font-weight: 500;
+  color: #667eea;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.error-text {
+  color: #dc3545;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0;
+}
+
+.warning-text {
+  color: #ffc107;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0;
+}
+
+.success-text {
+  color: #28a745;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0;
+}
+
+.summarization-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.summary-preview {
+  background: #f0f7ff;
+  border: 1px solid #cce5ff;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+}
+
+.summary-preview h4 {
+  margin: 0 0 15px 0;
+  color: #0056b3;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.summary-text {
+  line-height: 1.6;
+  font-size: 15px;
+  color: #333;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  border-left: 4px solid #0056b3;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Сообщение об ошибке */
+.error-message {
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  color: #c53030;
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.error-message i {
+  font-size: 1.2rem;
+}
+
+/* Информация о лимитах */
+.limits-info {
+  background: #e8f4fd;
+  border: 1px solid #b6e0fe;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.limits-info p {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+  color: #0056b3;
+}
+
+.limits-info ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #666;
+}
+
+.limits-info li {
+  margin-bottom: 5px;
+}
+
+/* Список постов */
 .selected-posts-list {
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
   margin-bottom: 20px;
   border: 1px solid #eee;
@@ -233,6 +510,14 @@ const truncateText = (text, maxLength) => {
   font-size: 13px;
 }
 
+.post-length {
+  color: #888;
+  font-size: 12px;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
 .post-date {
   color: #888;
   font-size: 13px;
@@ -268,12 +553,26 @@ const truncateText = (text, maxLength) => {
   margin-left: auto;
 }
 
-.panel-actions {
+/* Оверлей загрузки */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
   display: flex;
-  gap: 10px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.loading-overlay p {
+  margin-top: 15px;
+  color: #667eea;
+  font-weight: 500;
 }
 
 .header-action-btn {
@@ -291,13 +590,6 @@ const truncateText = (text, maxLength) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
 
-.header-action-btn:active {
-  transform: translateY(0);
-}
-
-.header-action-btn .pi {
-  color: #f44336 !important;
-}
 /* Адаптивность */
 @media (max-width: 768px) {
   .panel-header {
@@ -310,12 +602,18 @@ const truncateText = (text, maxLength) => {
     justify-content: center;
   }
   
-  .panel-actions {
-    flex-direction: column;
+  .summarization-actions button {
+    width: 100%;
   }
   
-  .panel-actions button {
-    width: 100%;
+  .post-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .post-length {
+    align-self: flex-start;
   }
 }
 </style>

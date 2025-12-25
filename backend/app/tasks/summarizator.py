@@ -29,7 +29,6 @@ def summarize_text_task(text: str) -> str:
                     "content": prompt
                 }
             ],
-            "max_tokens": 500,  # Ограничиваем длину ответа
             "temperature": 0.3  # Более детерминированный ответ
         }
                 
