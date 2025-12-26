@@ -1,33 +1,9 @@
-<template>
-  <div class="posts-chart" :class="{ 'is-loading': loading, 'has-no-data': !hasData }">
-    <!-- Состояние загрузки -->
-    <div v-if="loading" class="chart-state loading">
-      <div class="spinner"></div>
-      <span>Загрузка диаграммы...</span>
-    </div>
-    
-    <!-- Состояние без данных -->
-    <div v-else-if="!hasData" class="chart-state empty">
-      <div class="empty-icon">📊</div>
-      <p>Нет данных для отображения</p>
-    </div>
-    
-    <!-- Диаграмма с данными -->
-    <div v-else class="chart-content">
-      <Bar 
-        :data="chartData" 
-        :options="chartOptions"
-        ref="chartRef"
-      />
-    </div>
-  </div>
-</template>
-
+<!-- PostsChart.vue -->
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { Bar } from 'vue-chartjs'
 
-// Импорт композаблов
+// Импорт утилитарных композаблов (они остаются без изменений)
 import { useChartConfiguration } from '@/composables/useChartConfiguration'
 import { useChartValidation } from '@/composables/useChartValidation'
 
@@ -55,14 +31,14 @@ const emit = defineEmits(['topicClick', 'dateClick'])
 // Refs
 const chartRef = ref(null)
 
-// Композаблы
+// Композаблы (без изменений)
 const { chartOptions, isHorizontal } = useChartConfiguration(props, emit)
 const { hasData, isValidData, totalItems } = useChartValidation(props)
 
 // Методы
 const updateChart = () => {
   if (chartRef.value?.chart) {
-    chartRef.value.chart.update('none') // 'none' для отключения анимации
+    chartRef.value.chart.update('none')
   }
 }
 
@@ -80,12 +56,10 @@ watch(() => props.chartData, () => {
 }, { deep: true })
 
 watch(() => props.chartType, () => {
-  // Принудительное обновление при смене типа
   nextTick(updateChart)
 })
 
 // Хуки жизненного цикла
-import { onUnmounted } from 'vue'
 onUnmounted(destroyChart)
 
 // Экспортируем методы
@@ -95,6 +69,32 @@ defineExpose({
   getChart: () => chartRef.value?.chart
 })
 </script>
+
+<template>
+  <div class="posts-chart" :class="{ 'is-loading': loading, 'has-no-data': !hasData }">
+    <!-- Состояние загрузки -->
+    <div v-if="loading" class="chart-state loading">
+      <div class="spinner"></div>
+      <span>Загрузка диаграммы...</span>
+    </div>
+    
+    <!-- Состояние без данных -->
+    <div v-else-if="!hasData" class="chart-state empty">
+      <div class="empty-icon">📊</div>
+      <p>Нет данных для отображения</p>
+    </div>
+    
+    <!-- Диаграмма с данными -->
+    <div v-else class="chart-content">
+      <Bar 
+        :data="chartData" 
+        :options="chartOptions"
+        ref="chartRef"
+      />
+    </div>
+  </div>
+</template>
+
 
 <style scoped>
 .posts-chart {

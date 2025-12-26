@@ -84,7 +84,7 @@
         <div class="post-stats">
           <span>👁️ {{ post.views }}</span>
           <span>💬 {{ post.comments_count }}</span>
-          <span class="topic">{{ formatTopicToHashtag(post.topic) }}</span>
+          <span class="topic">{{ postsStore.formatTopicToHashtag(post.topic) }}</span>
         </div>
       </div>
     </div>
@@ -119,10 +119,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, defineProps } from 'vue'
 import Button from 'primevue/button'
 import { Select } from 'primevue'
-import { usePosts } from '@/composables/usePosts'
+
+// Импорт стора
+import { usePostsStore } from '@/stores/usePostsStore'
+
+const postsStore = usePostsStore()
 
 const props = defineProps({
   posts: {
@@ -135,11 +139,9 @@ const props = defineProps({
   }
 })
 
-const { formatTopicToHashtag } = usePosts()
-
 // Состояния пагинации
 const currentPage = ref(1)
-const itemsPerPage = ref(10)
+const itemsPerPage = ref(5)
 
 // Вычисляемые свойства
 const totalItems = computed(() => props.posts.length)
@@ -159,7 +161,7 @@ const endItem = computed(() => {
 
 const emit = defineEmits(['toggle-selection'])
 
-// Видимые номера страниц (с эллипсисом)
+// Видимые номера страниц
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5

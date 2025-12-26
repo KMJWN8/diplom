@@ -1,54 +1,44 @@
+<!-- DashboardView.vue -->
 <script setup>
-import Button from 'primevue/button';
-import MessageListArea from '@/components/MessageListArea.vue';
-import PostsChart from '@/components/PostsChart.vue';
-import SelectedPostsPanel from '@/components/SelectedPostsPanel.vue';
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue'
+import Button from 'primevue/button'
+import MessageListArea from '@/components/MessageListArea.vue'
+import PostsChart from '@/components/PostsChart.vue'
+import SelectedPostsPanel from '@/components/SelectedPostsPanel.vue'
 
-import { usePosts } from '@/composables/usePosts'
-import { useChartData } from '@/composables/useChartData'
-import { useSelection } from '@/composables/useSelection'
-import { useDateRange } from '@/composables/useDateRange'
+// Импорт сторов Pinia
+import { usePostsStore } from '@/stores/usePostsStore'
+import { useChartStore } from '@/stores/useChartStore'
+import { useDateStore } from '@/stores/useDateStore'
+import { useUIStore } from '@/stores/useUIStore'
 
+// Сторы
+const postsStore = usePostsStore()
+const chartStore = useChartStore()
+const dateStore = useDateStore()
+const uiStore = useUIStore()
 
-const { posts, loading, clearPosts, getPostsByDate, getPostsByTopic } = usePosts()
-const { selectedDate, selectedTopic, setSelection, resetSelection } = useSelection()
-const { dateRange } = useDateRange()
-const { 
-  topicsChartData, 
-  datesChartData, 
-  chartLoading, 
-  loadTopicsChartData, 
-  loadDatesChartData,
-  updateChartColors 
-} = useChartData()
-
-// Локальные состояния компонента
+// Локальные состояния
 const checked = ref(false)
-const activeChart = ref('topics') // 'topics' или 'dates'
+const activeChart = ref('topics')
 
 // Вычисляемые свойства
-const currentChartData = computed(() => 
-  activeChart.value === 'topics' ? topicsChartData.value : datesChartData.value
-)
-
-const hasPosts = computed(() => posts.value.length > 0)
+const currentChartData = computed(() => chartStore.currentChartData)
+const hasPosts = computed(() => postsStore.hasPosts)
 
 // Методы компонента
 const handleTopicClick = async (topic) => {
-  setSelection('topic', topic)
-  await updateChartColors(activeChart.value, { topic })
-  await getPostsByTopic(topic, dateRange.value)
+  chartStore.setSelection('topic', topic)
+  await postsStore.getPostsByTopic(topic, dateStore.dateRange)
 }
 
 const handleDateClick = async (date) => {
-  setSelection('date', date)
-  await updateChartColors(activeChart.value, { date })
-  await getPostsByDate(date)
+  chartStore.setSelection('date', date)
+  await postsStore.getPostsByDate(date)
 }
 
 const handleChartClick = (data) => {
-  if (activeChart.value === 'topics') {
+  if (chartStore.chartType === 'topics') {
     handleTopicClick(data)
   } else {
     handleDateClick(data)
@@ -56,104 +46,52 @@ const handleChartClick = (data) => {
 }
 
 const resetAll = () => {
-  resetSelection()
-  clearPosts()
-  updateChartColors(activeChart.value, { 
-    [activeChart.value === 'topics' ? 'topic' : 'date']: '' 
-  })
+  chartStore.resetSelection()
+  postsStore.clearPosts()
 }
 
 const toggleChart = async (type) => {
-  activeChart.value = type
+  chartStore.setChartType(type)
   await loadChartData()
   resetAll()
 }
 
 const loadChartData = async () => {
-  if (activeChart.value === 'topics') {
-    await loadTopicsChartData(dateRange.value)
-  } else {
-    await loadDatesChartData(dateRange.value)
-  }
+  uiStore.setLoading('chart', true)
+  await chartStore.loadChartData(dateStore.dateRange)
+  uiStore.setLoading('chart', false)
 }
 
-const refreshChart = () => {
-  loadChartData()
+const refreshChart = async () => {
+  await loadChartData()
   resetAll()
-}
-
-// Добавляем состояние для выбранных постов
-const selectedPosts = ref([])
-
-// Добавляем методы для работы с выбранными постами
-const togglePostSelection = (post) => {
-  const index = selectedPosts.value.findIndex(p => p.id === post.id)
-  
-  if (index > -1) {
-    // Удаляем пост, если уже выбран
-    selectedPosts.value.splice(index, 1)
-    // Обновляем свойство isSelected в основном списке
-    const mainPostIndex = posts.value.findIndex(p => p.id === post.id)
-    if (mainPostIndex > -1) {
-      posts.value[mainPostIndex].isSelected = false
-    }
-  } else {
-    // Добавляем пост в выборку
-    selectedPosts.value.push({
-      ...post,
-      isSelected: true
-    })
-    // Обновляем свойство isSelected в основном списке
-    const mainPostIndex = posts.value.findIndex(p => p.id === post.id)
-    if (mainPostIndex > -1) {
-      posts.value[mainPostIndex].isSelected = true
-    }
-  }
-}
-
-const removeFromSelection = (postId) => {
-  selectedPosts.value = selectedPosts.value.filter(post => post.id !== postId)
-  const mainPostIndex = posts.value.findIndex(p => p.id === postId)
-  if (mainPostIndex > -1) {
-    posts.value[mainPostIndex].isSelected = false
-  }
-}
-
-const clearSelection = () => {
-  selectedPosts.value.forEach(post => {
-    const mainPostIndex = posts.value.findIndex(p => p.id === post.id)
-    if (mainPostIndex > -1) {
-      posts.value[mainPostIndex].isSelected = false
-    }
-  })
-  selectedPosts.value = []
-}
-
-const generateReport = async (postsForReport) => {
-  console.log('Генерация отчета для постов:', postsForReport)
-  // Здесь реализация генерации отчета
-}
-
-const exportToExcel = async (postsForExport) => {
-  console.log('Экспорт в Excel:', postsForExport)
-  // Здесь реализация экспорта в Excel
-}
-
-const shareSelection = (postsForShare) => {
-  console.log('Поделиться выборкой:', postsForShare)
-  // Здесь реализация шеринга
 }
 
 // Хуки жизненного цикла
-onMounted(() => {
-  loadChartData()
+onMounted(async () => {
+  uiStore.setLoading('init', true)
+  
+  // Восстанавливаем состояние
+  postsStore.restoreSelections()
+  
+  // Загружаем данные графика
+  await loadChartData()
+  
+  uiStore.setLoading('init', false)
 })
 
 // Наблюдатели
-watch(dateRange, () => {
-  loadChartData()
+watch(() => dateStore.dateRange, async () => {
+  await loadChartData()
   resetAll()
 }, { deep: true })
+
+// Экспортируем методы для доступа
+defineExpose({
+  refreshChart,
+  resetAll,
+  loadChartData
+})
 </script>
 
 <template>
@@ -164,12 +102,12 @@ watch(dateRange, () => {
       <div class="chart-selector">
         <Button 
           @click="toggleChart('topics')" 
-          :severity="activeChart === 'topics' ? 'primary' : 'secondary'"
+          :severity="chartStore.chartType === 'topics' ? 'primary' : 'secondary'"
           label="По темам" 
         />
         <Button 
           @click="toggleChart('dates')" 
-          :severity="activeChart === 'dates' ? 'primary' : 'secondary'"
+          :severity="chartStore.chartType === 'dates' ? 'primary' : 'secondary'"
           label="По датам" 
         />
       </div>
@@ -178,20 +116,20 @@ watch(dateRange, () => {
         <label>Период анализа:</label>
         <input 
           type="date" 
-          v-model="dateRange.from" 
+          v-model="dateStore.dateRange.from" 
         />
         <span>по</span>
         <input 
           type="date" 
-          v-model="dateRange.to" 
+          v-model="dateStore.dateRange.to" 
         />
         <Button 
           @click="refreshChart" 
-          :disabled="chartLoading"
+          :disabled="uiStore.loadingStates.chart"
           label="Обновить график" 
         />
         <Button 
-          v-if="(selectedTopic || selectedDate) && hasPosts"
+          v-if="chartStore.hasSelection && hasPosts"
           @click="resetAll" 
           label="Сбросить выбор" 
           severity="secondary"
@@ -199,40 +137,42 @@ watch(dateRange, () => {
       </div>
       
       <div class="current-selection">
-        <span v-if="activeChart === 'topics' && selectedTopic">
-          Выбранная тема: <strong>{{ selectedTopic }}</strong>
+        <span v-if="chartStore.selectedTopic">
+          Выбранная тема: <strong>{{ chartStore.selectedTopic }}</strong>
         </span>
-        <span v-else-if="activeChart === 'dates' && selectedDate">
-          Выбранная дата: <strong>{{ selectedDate }}</strong>
+        <span v-else-if="chartStore.selectedDate">
+          Выбранная дата: <strong>{{ chartStore.selectedDate }}</strong>
         </span>
         <span v-else>
-          {{ activeChart === 'topics' ? 'Выберите тему из графика' : 'Выберите дату из графика' }}
+          {{ chartStore.chartType === 'topics' ? 'Выберите тему из графика' : 'Выберите дату из графика' }}
         </span>
-        <span>Найдено постов: <strong>{{ posts.length }}</strong></span>
+        <span>Найдено постов: <strong>{{ postsStore.postsCount }}</strong></span>
       </div>
     </div>
 
     <PostsChart 
       :chart-data="currentChartData"
-      :loading="chartLoading"
-      :chart-type="activeChart"
+      :loading="uiStore.loadingStates.chart"
+      :chart-type="chartStore.chartType"
       @topic-click="handleTopicClick"
       @date-click="handleDateClick"
     />
 
     <MessageListArea 
-      :posts="posts"
-      :loading="loading"
-      @toggle-selection="togglePostSelection"
+      :posts="postsStore.posts"
+      :loading="postsStore.loading"
+      @toggle-selection="postsStore.togglePostSelection"
     />
 
     <SelectedPostsPanel 
-      :selected-posts="selectedPosts"
-      @remove-post="removeFromSelection"
-      @clear-selection="clearSelection"
-      @generate-report="generateReport"
-      @export-excel="exportToExcel"
-      @share-selection="shareSelection"
+      :selected-posts="postsStore.getSelectedPosts"
+      @remove-post="(postId) => {
+        const post = postsStore.posts.find(p => p.id === postId)
+        if (post) postsStore.togglePostSelection(post)
+      }"
+      @clear-selection="postsStore.clearSelections"
+      @generate-report="postsStore.generateReport"
+      @share-selection="postsStore.shareSelection"
     />
   </div>
 </template>

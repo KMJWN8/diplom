@@ -1,23 +1,109 @@
+<!-- SelectedPostsPanel.vue -->
+<script setup>
+import { ref, computed, watch } from 'vue'
+import Button from 'primevue/button'
+
+// Импорт сторов
+import { usePostsStore } from '@/stores/usePostsStore'
+import { useSummarizationStore } from '@/stores/useSummarizationStore'
+
+const postsStore = usePostsStore()
+const summarizationStore = useSummarizationStore()
+
+// Props
+const props = defineProps({
+  selectedPosts: {
+    type: Array,
+    default: () => []
+  }
+})
+
+// Emits
+const emit = defineEmits([
+  'remove-post',
+  'clear-selection'
+])
+
+// Локальные состояния
+const localSelectedPosts = computed(() => props.selectedPosts)
+
+// Вычисляемые свойства
+const combinedTextLength = computed(() => {
+  return localSelectedPosts.value
+    .map(post => post.message || '')
+    .filter(text => text.trim())
+    .join('\n\n')
+    .length
+})
+
+const isTextTooLong = computed(() => {
+  return combinedTextLength.value > summarizationStore.MAX_TEXT_LENGTH
+})
+
+const isTextTooShort = computed(() => {
+  return combinedTextLength.value < summarizationStore.MIN_TEXT_LENGTH
+})
+
+const buttonLabel = computed(() => {
+  if (summarizationStore.isExporting) return 'Экспорт в Word...'
+  if (summarizationStore.loading) return 'Суммаризация...'
+  if (isTextTooLong.value) return 'Текст слишком длинный'
+  if (isTextTooShort.value) return 'Текст слишком короткий'
+  return 'Суммаризировать выбранные посты'
+})
+
+const buttonTooltip = computed(() => {
+  if (isTextTooLong.value) {
+    return `Уменьшите количество выбранных постов. Максимум ${summarizationStore.MAX_TEXT_LENGTH} символов`
+  }
+  if (isTextTooShort.value) {
+    return `Добавьте больше постов. Минимум ${summarizationStore.MIN_TEXT_LENGTH} символов`
+  }
+  return `Суммаризировать ${combinedTextLength.value} символов`
+})
+
+// Методы
+const generateSummary = async () => {
+  const result = await summarizationStore.generateSummary(localSelectedPosts.value)
+  
+  if (!result.success) {
+    // Ошибка уже установлена в сторе
+    setTimeout(() => {
+      summarizationStore.clearError()
+    }, 5000)
+  }
+}
+
+const exportToWord = async () => {
+  await summarizationStore.exportToWord(localSelectedPosts.value, summarizationStore.summary)
+}
+
+// Очистка ошибок при изменении списка
+watch(localSelectedPosts, () => {
+  summarizationStore.clearError()
+})
+</script>
+
 <template>
-  <div v-if="selectedPosts.length > 0" class="selected-posts-panel">
+  <div v-if="localSelectedPosts.length > 0" class="selected-posts-panel">
     <!-- Заголовок панели -->
     <div class="panel-header">
       <div class="header-left">
         <i class="pi pi-folder-open" />
-        <h3>Выбранные посты для суммаризации ({{ selectedPosts.length }})</h3>
+        <h3>Выбранные посты для суммаризации ({{ localSelectedPosts.length }})</h3>
       </div>
       <div class="header-right">
         <Button 
           @click="exportToWord"
-          :disabled="selectedPosts.length === 0 || isExporting"
-          :loading="isExporting"
+          :disabled="localSelectedPosts.length === 0 || summarizationStore.isExporting"
+          :loading="summarizationStore.isExporting"
           icon="pi pi-file-word"
           severity="help"
           outlined
           size="small"
           label="Выгрузить в Word"
           class="header-action-btn"
-          :title="'Экспортировать ' + selectedPosts.length + ' постов в Word'"
+          :title="'Экспортировать ' + localSelectedPosts.length + ' постов в Word'"
         />
         <Button 
           @click="$emit('clear-selection')"
@@ -38,16 +124,16 @@
       <div class="summarization-controls">
         <div class="summarization-info">
           <span class="info-text">
-            Выбрано постов: {{ selectedPosts.length }} 
-            ({{ combinedTextLength }} / {{ MAX_TEXT_LENGTH }} символов)
+            Выбрано постов: {{ localSelectedPosts.length }} 
+            ({{ combinedTextLength }} / {{ summarizationStore.MAX_TEXT_LENGTH }} символов)
           </span>
           <span v-if="isTextTooLong" class="error-text">
             <i class="pi pi-exclamation-triangle"></i>
-            Текст превышает лимит на {{ combinedTextLength - MAX_TEXT_LENGTH }} символов
+            Текст превышает лимит на {{ combinedTextLength - summarizationStore.MAX_TEXT_LENGTH }} символов
           </span>
           <span v-else-if="isTextTooShort" class="warning-text">
             <i class="pi pi-info-circle"></i>
-            Текст слишком короткий для суммаризации (минимум 50 символов)
+            Текст слишком короткий для суммаризации (минимум {{ summarizationStore.MIN_TEXT_LENGTH }} символов)
           </span>
           <span v-else class="success-text">
             <i class="pi pi-check-circle"></i>
@@ -58,8 +144,8 @@
         <div class="summarization-actions">
           <Button 
             @click="generateSummary"
-            :loading="loading"
-            :disabled="loading || selectedPosts.length === 0 || isTextTooLong || isTextTooShort || isExporting"
+            :loading="summarizationStore.loading"
+            :disabled="summarizationStore.loading || localSelectedPosts.length === 0 || isTextTooLong || isTextTooShort || summarizationStore.isExporting"
             icon="pi pi-compress"
             :label="buttonLabel"
             severity="primary"
@@ -69,32 +155,32 @@
       </div>
 
       <!-- Превью суммаризации -->
-      <div v-if="summary" class="summary-preview">
-        <h4>Результат суммаризации ({{ summary.length }} символов):</h4>
+      <div v-if="summarizationStore.summary" class="summary-preview">
+        <h4>Результат суммаризации ({{ summarizationStore.summary.length }} символов):</h4>
         <div class="summary-text">
-          {{ summary }}
+          {{ summarizationStore.summary }}
         </div>
       </div>
       
       <!-- Сообщение об ошибке -->
-      <div v-if="error" class="error-message">
+      <div v-if="summarizationStore.error" class="error-message">
         <i class="pi pi-exclamation-triangle"></i>
-        {{ error }}
+        {{ summarizationStore.error }}
       </div>
 
       <!-- Информация о лимитах -->
       <div class="limits-info">
         <p><strong>Ограничения суммаризации:</strong></p>
         <ul>
-          <li>Максимальная длина текста: {{ MAX_TEXT_LENGTH }} символов</li>
-          <li>Минимальная длина текста: {{ MIN_TEXT_LENGTH }} символов</li>
+          <li>Максимальная длина текста: {{ summarizationStore.MAX_TEXT_LENGTH }} символов</li>
+          <li>Минимальная длина текста: {{ summarizationStore.MIN_TEXT_LENGTH }} символов</li>
           <li>Текущая длина: {{ combinedTextLength }} символов</li>
         </ul>
       </div>
 
       <!-- Список выбранных постов -->
       <div class="selected-posts-list">
-        <div v-for="post in selectedPosts" :key="post.id" class="selected-post-item">
+        <div v-for="post in localSelectedPosts" :key="post.id" class="selected-post-item">
           <div class="post-item-header">
             <div class="post-info">
               <span class="channel-badge">{{ post.channel_name }}</span>
@@ -116,11 +202,11 @@
           </div>
           
           <div class="post-date">
-            {{ formatDate(post.date) }}
+            {{ summarizationStore.formatDate(post.date) }}
           </div>
           
           <div class="post-preview">
-            {{ truncateText(post.message, 120) }}
+            {{ summarizationStore.truncateText(post.message, 120) }}
           </div>
           
           <div class="post-meta">
@@ -130,362 +216,20 @@
             <span class="meta-item">
               <i class="pi pi-comments" /> {{ post.comments_count }}
             </span>
-            <span class="topic-tag">{{ formatTopicToHashtag(post.topic) }}</span>
+            <span class="topic-tag">{{ postsStore.formatTopicToHashtag(post.topic) }}</span>
           </div>
         </div>
       </div>
     </div>
     
     <!-- Диалог загрузки -->
-    <div v-if="loading || isExporting" class="loading-overlay">
+    <div v-if="summarizationStore.loading || summarizationStore.isExporting" class="loading-overlay">
       <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
-      <p>{{ isExporting ? 'Экспорт в Word...' : 'Суммаризация текста...' }}</p>
+      <p>{{ summarizationStore.isExporting ? 'Экспорт в Word...' : 'Суммаризация текста...' }}</p>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import Button from 'primevue/button'
-import { usePosts } from '@/composables/usePosts'
-import apiClient from '@/api/client'
-
-const props = defineProps({
-  selectedPosts: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const emit = defineEmits([
-  'remove-post',
-  'clear-selection'
-])
-
-const { formatTopicToHashtag } = usePosts()
-
-// Константы для ограничений
-const MAX_TEXT_LENGTH = 4100
-const MIN_TEXT_LENGTH = 50
-
-// Состояния для суммаризации
-const summary = ref('')
-const loading = ref(false)
-const isExporting = ref(false)
-const error = ref(null)
-
-// Вычисляемые свойства
-const combinedTextLength = computed(() => {
-  return props.selectedPosts
-    .map(post => post.message || '')
-    .filter(text => text.trim())
-    .join('\n\n')
-    .length
-})
-
-const isTextTooLong = computed(() => {
-  return combinedTextLength.value > MAX_TEXT_LENGTH
-})
-
-const isTextTooShort = computed(() => {
-  return combinedTextLength.value < MIN_TEXT_LENGTH
-})
-
-const buttonLabel = computed(() => {
-  if (isExporting.value) return 'Экспорт в Word...'
-  if (loading.value) return 'Суммаризация...'
-  if (isTextTooLong.value) return 'Текст слишком длинный'
-  if (isTextTooShort.value) return 'Текст слишком короткий'
-  return 'Суммаризировать выбранные посты'
-})
-
-const buttonTooltip = computed(() => {
-  if (isTextTooLong.value) {
-    return `Уменьшите количество выбранных постов. Максимум ${MAX_TEXT_LENGTH} символов`
-  }
-  if (isTextTooShort.value) {
-    return `Добавьте больше постов. Минимум ${MIN_TEXT_LENGTH} символов`
-  }
-  return `Суммаризировать ${combinedTextLength.value} символов`
-})
-
-// Функция для отправки на суммаризацию
-const generateSummary = async () => {
-  // Проверка лимитов перед отправкой
-  if (isTextTooLong.value) {
-    error.value = `Текст превышает лимит ${MAX_TEXT_LENGTH} символов. Уменьшите количество выбранных постов.`
-    setTimeout(() => { error.value = null }, 5000)
-    return
-  }
-  
-  if (isTextTooShort.value) {
-    error.value = `Текст слишком короткий (${combinedTextLength.value} символов). Минимум ${MIN_TEXT_LENGTH} символов.`
-    setTimeout(() => { error.value = null }, 5000)
-    return
-  }
-
-  loading.value = true
-  error.value = null
-  summary.value = ''
-
-  try {
-    // Объединяем тексты постов
-    const combinedText = props.selectedPosts
-      .map(post => post.message || '')
-      .filter(text => text.trim())
-      .join('\n\n')
-    
-    // Дополнительная проверка (на всякий случай)
-    if (combinedText.length > MAX_TEXT_LENGTH) {
-      throw new Error(`Текст превышает максимальную длину ${MAX_TEXT_LENGTH} символов`)
-    }
-    
-    if (combinedText.length < MIN_TEXT_LENGTH) {
-      throw new Error(`Текст слишком короткий для суммаризации`)
-    }
-
-    console.log(`Отправка на суммаризацию: ${combinedText.length} символов`)
-    
-    // Отправляем на бэкенд
-    const response = await apiClient.post('/summarization/summarize', {
-      summary: combinedText
-    }, {
-      timeout: 60000 // 60 секунд таймаут
-    })
-
-    summary.value = response.data.summary
-    console.log(`Получен результат: ${summary.value.length} символов`)
-
-  } catch (err) {
-    console.error('Ошибка при суммаризации:', err)
-    
-    // Форматируем сообщение об ошибке
-    if (err.message.includes('timeout')) {
-      error.value = 'Таймаут запроса. Текст слишком длинный или сервер занят.'
-    } else if (err.message.includes('Network Error')) {
-      error.value = 'Ошибка сети. Проверьте соединение с сервером.'
-    } else if (err.response?.data?.message) {
-      error.value = err.response.data.message
-    } else if (err.response?.data?.detail) {
-      error.value = err.response.data.detail
-    } else {
-      error.value = err.message || 'Не удалось суммаризировать текст'
-    }
-    
-    // Показываем ошибку в течение 5 секунд
-    setTimeout(() => {
-      error.value = null
-    }, 5000)
-  } finally {
-    loading.value = false
-  }
-}
-
-// Функция для экспорта в Word на фронтенде (упрощенная версия)
-const exportToWord = async () => {
-  if (props.selectedPosts.length === 0) return
-  
-  isExporting.value = true
-  error.value = null
-
-  try {
-    // Создаем HTML документ с минимальным форматированием
-    let htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Telegram посты</title>
-        <style>
-          body { 
-            font-family: 'Times New Roman', Times, serif; 
-            margin: 2cm; 
-            font-size: 12pt; 
-            line-height: 1.5;
-          }
-          h1 { 
-            text-align: center; 
-            font-size: 16pt;
-            margin-bottom: 20px;
-          }
-          .post { 
-            margin: 25px 0; 
-            page-break-inside: avoid;
-          }
-          .post-header { 
-            margin-bottom: 10px;
-            border-bottom: 1px solid #cccccc;
-            padding-bottom: 5px;
-          }
-          .post-meta { 
-            font-size: 11pt; 
-            color: #666666;
-            margin-bottom: 8px;
-          }
-          .post-text { 
-            margin: 10px 0; 
-            line-height: 1.6;
-            text-align: justify;
-          }
-          .divider { 
-            border-top: 1px solid #cccccc; 
-            margin: 20px 0;
-          }
-          .summary { 
-            margin: 20px 0;
-            font-style: italic;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>TELEGRAM ПОСТЫ</h1>
-    `
-    
-    // Добавляем суммаризацию если есть
-    if (summary.value) {
-      htmlContent += `
-        <div class="summary">
-          <strong>Суммаризация:</strong><br>
-          ${summary.value}
-        </div>
-      `
-    }
-    
-    // Добавляем посты
-    props.selectedPosts.forEach((post, index) => {
-      const postText = post.message || ''
-      
-      htmlContent += `
-        <div class="post">
-          <div class="post-header">
-            <div class="post-meta">
-              <strong>Пост ${index + 1}</strong> | 
-              Канал: ${post.channel_name || 'Неизвестно'} | 
-              Дата: ${formatDate(post.date)} | 
-              Тема: #${formatTopicToHashtag(post.topic)}
-            </div>
-          </div>
-      `
-      
-      if (postText) {
-        // Разбиваем текст на абзацы
-        const paragraphs = postText.split('\n').filter(p => p.trim())
-        if (paragraphs.length > 0) {
-          paragraphs.forEach(paragraph => {
-            htmlContent += `<div class="post-text">${paragraph}</div>`
-          })
-        } else {
-          htmlContent += `<div class="post-text">${postText}</div>`
-        }
-      } else {
-        htmlContent += '<div class="post-text"><em>Текст поста отсутствует</em></div>'
-      }
-      
-      htmlContent += '</div>'
-      
-      // Добавляем разделитель между постами (кроме последнего)
-      if (index < props.selectedPosts.length - 1) {
-        htmlContent += '<div class="divider"></div>'
-      }
-    })
-    
-    // Простой футер
-    htmlContent += `
-        <div style="margin-top: 40px; text-align: right; font-size: 10pt; color: #888888;">
-          Сформировано: ${new Date().toLocaleDateString('ru-RU')}
-        </div>
-      </body>
-      </html>
-    `
-    
-    // Создаем Blob и скачиваем как .doc файл
-    const blob = new Blob([htmlContent], { 
-      type: 'application/msword' 
-    })
-    
-    // Создаем ссылку для скачивания
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    
-    // Генерируем имя файла
-    const dateStr = new Date().toISOString().slice(0, 10)
-    const fileName = `telegram_posts_${dateStr}.doc`
-    
-    link.setAttribute('download', fileName)
-    document.body.appendChild(link)
-    link.click()
-    
-    // Очищаем
-    link.remove()
-    window.URL.revokeObjectURL(url)
-    
-    console.log(`Word документ успешно экспортирован: ${fileName}`)
-    
-  } catch (err) {
-    console.error('Ошибка при экспорте в Word:', err)
-    error.value = 'Ошибка при создании Word документа: ' + err.message
-    setTimeout(() => { error.value = null }, 5000)
-  } finally {
-    isExporting.value = false
-  }
-}
-
-// Вспомогательная функция для разбивки текста на абзацы
-const splitTextIntoParagraphs = (text, maxLength = 500) => {
-  if (!text) return []
-  
-  const paragraphs = []
-  let currentIndex = 0
-  
-  while (currentIndex < text.length) {
-    const chunk = text.slice(currentIndex, currentIndex + maxLength)
-    
-    // Пытаемся разбить по предложениям
-    const lastPeriod = chunk.lastIndexOf('.')
-    const lastExclamation = chunk.lastIndexOf('!')
-    const lastQuestion = chunk.lastIndexOf('?')
-    const lastNewLine = chunk.lastIndexOf('\n')
-    
-    const breakIndex = Math.max(lastPeriod, lastExclamation, lastQuestion, lastNewLine)
-    
-    if (breakIndex > 0 && currentIndex + breakIndex < text.length) {
-      paragraphs.push(chunk.slice(0, breakIndex + 1))
-      currentIndex += breakIndex + 1
-    } else {
-      paragraphs.push(chunk)
-      currentIndex += maxLength
-    }
-  }
-  
-  return paragraphs
-}
-
-// Вспомогательные функции
-const formatDate = (dateString) => {
-  if (!dateString) return 'Неизвестно'
-  
-  try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
-    
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  } catch {
-    return dateString
-  }
-}
-
-const truncateText = (text, maxLength) => {
-  if (!text || text.length <= maxLength) return text || ''
-  return text.substring(0, maxLength) + '...'
-}
-</script>
 
 <style scoped>
 /* Стили остаются без изменений, как у вас в коде */
