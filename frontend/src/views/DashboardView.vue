@@ -25,16 +25,22 @@ const currentChartData = computed(() => chartStore.currentChartData)
 const hasPosts = computed(() => postsStore.hasPosts)
 const activeChart = computed(() => chartStore.chartType)
 
-// Методы компонента
-const handleTopicClick = async (topic) => {
-  console.log('Выбрана тема:', topic)
-  chartStore.setSelection('topic', topic)
+const handleTopicClick = async (russianTopic) => {
+  console.log('Выбрана русская тема:', russianTopic)
   
-  // Загружаем посты для выбранной темы
+  // Получаем английское название
+  const englishTopic = chartStore.getOriginalTopicName(russianTopic)
+  console.log('Для API:', englishTopic)
+  
+  // Сохраняем выбор (ChartStore сам переведет)
+  chartStore.setSelection('topic', russianTopic)
+  
+  // Загружаем посты - используем selectedTopic (который уже английский)
   uiStore.setLoading('posts', true)
-  await postsStore.getPostsByTopic(topic, dateStore.dateRange)
+  await postsStore.getPostsByTopic(chartStore.selectedTopic, dateStore.dateRange)
   uiStore.setLoading('posts', false)
 }
+
 
 const handleDateClick = async (date) => {
   console.log('Выбрана дата:', date)
@@ -165,7 +171,7 @@ defineExpose({
       
       <div class="current-selection">
         <span v-if="chartStore.selectedTopic">
-          Выбранная тема: <strong>{{ chartStore.selectedTopic }}</strong>
+          Выбранная тема: <strong>{{ chartStore.translatedSelectedTopic }}</strong>
         </span>
         <span v-else-if="chartStore.selectedDate">
           Выбранная дата: <strong>{{ chartStore.selectedDate }}</strong>

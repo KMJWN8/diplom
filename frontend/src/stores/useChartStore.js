@@ -1,7 +1,28 @@
-// stores/useChartStore.js
+// stores/useChartStore.js - полное исправление
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { postsApi } from '@/api/endpoints'
+
+const TOPIC_TRANSLATIONS = {
+  "environment": "Экология",
+  "manufacture": "Производство", 
+  "employment": "Занятость",
+  "financesandcredit": "Финансы и кредит",
+  "homeandinfrastructure": "Дом и инфраструктура",
+  "healthservice": "Здравоохранение",
+  "educationandsport": "Образование и спорт",
+  "socialsphere": "Социальная сфера",
+  "politics": "Политика",
+  "criminality": "Криминалистика",
+  "demographic": "Демография",
+  "unclassified": "Не классифицировано"
+}
+
+// Создаем обратный словарь для перевода с русского на английский
+const REVERSE_TRANSLATIONS = Object.entries(TOPIC_TRANSLATIONS).reduce((acc, [eng, rus]) => {
+  acc[rus] = eng
+  return acc
+}, {})
 
 export const useChartStore = defineStore('chart', () => {
   // Состояние
@@ -30,11 +51,14 @@ export const useChartStore = defineStore('chart', () => {
   })
   
   const chartType = ref('topics') // 'topics' или 'dates'
-  const selectedTopic = ref('')
+  const selectedTopic = ref('') // Храним АНГЛИЙСКОЕ название
   const selectedDate = ref('')
   
   // Простое кэширование для предотвращения повторных запросов
   const lastLoadedDateRange = ref({ from: '', to: '' })
+  
+  // Добавляем ref для оригинальных тем
+  const originalTopics = ref([])
   
   // Геттеры
   const currentChartData = computed(() => {
@@ -43,7 +67,29 @@ export const useChartStore = defineStore('chart', () => {
   
   const hasSelection = computed(() => !!selectedTopic.value || !!selectedDate.value)
   
-  // Действия
+  // Функция перевода с английского на русский
+  const translateTopic = (topic) => {
+    return TOPIC_TRANSLATIONS[topic] || topic
+  }
+  
+  // Функция обратного перевода с русского на английский
+  const reverseTranslateTopic = (russianTopic) => {
+    return REVERSE_TRANSLATIONS[russianTopic] || russianTopic
+  }
+  
+  // Получение английского названия темы (для API)
+  const getOriginalTopicName = (russianTopic) => {
+    // Сначала ищем в сохраненных оригинальных темах
+    const originalTopic = originalTopics.value.find(
+      topic => translateTopic(topic) === russianTopic
+    )
+    
+    if (originalTopic) return originalTopic
+    
+    // Если не нашли, используем обратный перевод
+    return reverseTranslateTopic(russianTopic)
+  }
+  
   const setChartType = async (type, dateRange) => {
     if (['topics', 'dates'].includes(type) && chartType.value !== type) {
       chartType.value = type
@@ -52,17 +98,27 @@ export const useChartStore = defineStore('chart', () => {
     }
   }
   
-  const setSelection = (type, value) => {
-    if (type === 'date') {
-      selectedDate.value = value
-      selectedTopic.value = ''
-      updateChartColors()
-    } else if (type === 'topic') {
-      selectedTopic.value = value
+  // Исправляем setSelection - сохраняем только английские названия
+  const setSelection = (type, translatedValue) => {
+    if (type === 'topic') {
+      // Всегда сохраняем английское название
+      const englishTopic = getOriginalTopicName(translatedValue)
+      console.log('setSelection - русская:', translatedValue, 'английская:', englishTopic)
+      
+      selectedTopic.value = englishTopic
       selectedDate.value = ''
+      updateChartColors()
+    } else if (type === 'date') {
+      selectedDate.value = translatedValue
+      selectedTopic.value = ''
       updateChartColors()
     }
   }
+
+  // Геттер для получения переведенной выбранной темы (для UI)
+  const translatedSelectedTopic = computed(() => {
+    return selectedTopic.value ? translateTopic(selectedTopic.value) : ''
+  })
   
   const resetSelection = () => {
     selectedTopic.value = ''
@@ -111,26 +167,39 @@ export const useChartStore = defineStore('chart', () => {
            last.from !== dateRange.from || 
            last.to !== dateRange.to
   }
-  
+
   // Вспомогательные функции
   const updateChartData = (type, labels, counts) => {
     const isTopics = type === 'topics'
+    
+    // Сохраняем оригинальные темы
+    if (isTopics) {
+      originalTopics.value = labels
+    }
+
+    // Переводим labels для отображения
+    const translatedLabels = isTopics ? labels.map(topic => translateTopic(topic)) : labels
+    
+    // Для сравнения используем selectedTopic.value (который всегда на английском)
     const selectedValue = isTopics ? selectedTopic.value : selectedDate.value
     
     const chartData = {
-      labels,
+      labels: translatedLabels,
       datasets: [{
         label: 'Количество постов',
         data: counts,
-        backgroundColor: labels.map(label => 
-          label === selectedValue ? 'rgba(255, 99, 132, 0.8)' : 
-          (isTopics ? 'rgba(75, 192, 192, 0.5)' : 'rgba(54, 162, 235, 0.5)')
-        ),
-        borderColor: labels.map(label => 
-          label === selectedValue ? 'rgba(255, 99, 132, 1)' : 
-          (isTopics ? 'rgba(75, 192, 192, 1)' : 'rgba(54, 162, 235, 1)')
-        ),
-        borderWidth: labels.map(label => label === selectedValue ? 3 : 1),
+        // labels - это английские названия, сравниваем с selectedTopic.value (английское)
+        backgroundColor: labels.map((originalLabel, index) => {
+          return originalLabel === selectedValue ? 'rgba(255, 99, 132, 0.8)' : 
+                 (isTopics ? 'rgba(75, 192, 192, 0.5)' : 'rgba(54, 162, 235, 0.5)')
+        }),
+        borderColor: labels.map((originalLabel, index) => {
+          return originalLabel === selectedValue ? 'rgba(255, 99, 132, 1)' : 
+                 (isTopics ? 'rgba(75, 192, 192, 1)' : 'rgba(54, 162, 235, 1)')
+        }),
+        borderWidth: labels.map(originalLabel => {
+          return originalLabel === selectedValue ? 3 : 1
+        }),
         borderRadius: 5,
       }]
     }
@@ -146,7 +215,11 @@ export const useChartStore = defineStore('chart', () => {
     if (chartType.value === 'topics') {
       const { labels, datasets } = topicsChartData.value
       if (labels.length > 0) {
-        updateChartData('topics', labels, datasets[0].data)
+        // Здесь проблема! Нужно передать оригинальные темы, не переведенные
+        // Но originalTopics уже должны быть сохранены
+        if (originalTopics.value.length > 0) {
+          updateChartData('topics', originalTopics.value, datasets[0].data)
+        }
       }
     } else {
       const { labels, datasets } = datesChartData.value
@@ -161,12 +234,13 @@ export const useChartStore = defineStore('chart', () => {
     topicsChartData,
     datesChartData,
     chartType,
-    selectedTopic,
+    selectedTopic, // ВСЕГДА английское!
     selectedDate,
     
     // Геттеры
     currentChartData,
     hasSelection,
+    translatedSelectedTopic, // Для UI - русская версия
     
     // Действия
     setChartType,
@@ -174,6 +248,14 @@ export const useChartStore = defineStore('chart', () => {
     resetSelection,
     loadChartData,
     shouldLoadData,
-    updateChartColors
+    updateChartColors,
+
+    // Функции перевода
+    translateTopic,
+    reverseTranslateTopic,
+    getOriginalTopicName,
+    
+    // Для отладки
+    originalTopics
   }
 })
