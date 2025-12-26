@@ -214,7 +214,7 @@ watch(selectedPosts, () => {
     <!-- Диалог загрузки -->
     <div v-if="summarizationStore.loading || summarizationStore.isExporting" class="loading-overlay">
       <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
-      <p>{{ summarizationStore.isExporting ? 'Экспорт в Word...' : 'Суммаризация текста...' }}</p>
+      <p>{{ summarizationStore.isExporting ? 'Экспорт в Word...' : 'Аннотирование текста...' }}</p>
     </div>
   </div>
 </template>

@@ -107,7 +107,7 @@ export const useSummarizationStore = defineStore('summarization', () => {
           <style>
             body { 
               font-family: 'Times New Roman'; 
-              margin: 0.5cm 0.5cm 0.5cm 0.5cm; 
+              margin: 0.3cm 0.5cm 0.5cm 0.5cm; 
               font-size: 14pt; 
               line-height: 1.5;
               text-align: justify;
