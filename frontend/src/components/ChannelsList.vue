@@ -326,12 +326,6 @@ const formatDate = (dateString) => {
   }
 }
 
-// Форматирование числа (подписчиков)
-const formatNumber = (num) => {
-  if (!num) return 'Не указано'
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-}
-
 // Загрузка каналов при монтировании компонента
 onMounted(() => {
   fetchChannels()

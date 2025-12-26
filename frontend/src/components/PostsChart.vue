@@ -32,8 +32,8 @@ const emit = defineEmits(['topicClick', 'dateClick'])
 const chartRef = ref(null)
 
 // Композаблы (без изменений)
-const { chartOptions, isHorizontal } = useChartConfiguration(props, emit)
-const { hasData, isValidData, totalItems } = useChartValidation(props)
+const { chartOptions } = useChartConfiguration(props, emit)
+const { hasData } = useChartValidation(props)
 
 // Методы
 const updateChart = () => {

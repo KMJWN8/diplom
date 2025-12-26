@@ -34,10 +34,20 @@ export const useChartStore = defineStore('chart', () => {
   const selectedTopic = ref('')
   const selectedDate = ref('')
   
+  // Кэш для загруженных данных (чтобы не грузить повторно)
+  const dataCache = ref({
+    topics: { data: null, lastLoaded: null },
+    dates: { data: null, lastLoaded: null }
+  })
+  
   // Геттеры
-  const currentChartData = computed(() => 
-    chartType.value === 'topics' ? topicsChartData.value : datesChartData.value
-  )
+  const currentChartData = computed(() => {
+    if (chartType.value === 'topics') {
+      return topicsChartData.value
+    } else {
+      return datesChartData.value
+    }
+  })
   
   const hasChartData = computed(() => {
     const data = currentChartData.value
@@ -46,10 +56,32 @@ export const useChartStore = defineStore('chart', () => {
   
   const hasSelection = computed(() => !!selectedTopic.value || !!selectedDate.value)
   
+  // Проверяем нужно ли обновлять данные
+  const shouldReloadData = (type, dateRange) => {
+    const cacheKey = `${type}_${dateRange.from}_${dateRange.to}`
+    const cachedData = dataCache.value[type]
+    
+    if (!cachedData.data || !cachedData.lastLoaded) {
+      return true
+    }
+    
+    // Проверяем не устарели ли данные (больше 5 минут)
+    const now = new Date().getTime()
+    const lastLoadedTime = new Date(cachedData.lastLoaded).getTime()
+    const fiveMinutes = 5 * 60 * 1000
+    
+    return (now - lastLoadedTime) > fiveMinutes
+  }
+  
   // Действия
-  const setChartType = (type) => {
+  const setChartType = async (type, dateRange) => {
     if (['topics', 'dates'].includes(type)) {
       chartType.value = type
+      
+      // Загружаем данные если их еще нет в кэше
+      if (shouldReloadData(type, dateRange)) {
+        await loadChartData(dateRange)
+      }
     }
   }
   
@@ -71,8 +103,22 @@ export const useChartStore = defineStore('chart', () => {
     updateChartColors()
   }
   
-  // Загрузка данных
-  const loadTopicsChartData = async (dateRange) => {
+  // Загрузка данных с кэшированием
+  const loadTopicsChartData = async (dateRange, forceRefresh = false) => {
+    const cacheKey = `topics_${dateRange.from}_${dateRange.to}`
+    
+    // Проверяем кэш если не принудительное обновление
+    if (!forceRefresh && dataCache.value.topics.data && 
+        dataCache.value.topics.lastLoaded && 
+        !shouldReloadData('topics', dateRange)) {
+      topicsChartData.value = updateTopicsChartColors(
+        dataCache.value.topics.data.topics,
+        dataCache.value.topics.data.counts,
+        selectedTopic.value
+      )
+      return { success: true, data: dataCache.value.topics.data, cached: true }
+    }
+    
     chartLoading.value = true
     
     try {
@@ -84,13 +130,19 @@ export const useChartStore = defineStore('chart', () => {
       const data = response.data
       
       if (data.topics && data.counts) {
+        // Сохраняем в кэш
+        dataCache.value.topics = {
+          data: { topics: data.topics, counts: data.counts },
+          lastLoaded: new Date().toISOString()
+        }
+        
         topicsChartData.value = updateTopicsChartColors(
           data.topics, 
           data.counts,
           selectedTopic.value
         )
       }
-      return { success: true, data: response.data }
+      return { success: true, data: response.data, cached: false }
     } catch (error) {
       console.error('Topics chart data fetch error:', error)
       return { success: false, error }
@@ -99,7 +151,21 @@ export const useChartStore = defineStore('chart', () => {
     }
   }
   
-  const loadDatesChartData = async (dateRange) => {
+  const loadDatesChartData = async (dateRange, forceRefresh = false) => {
+    const cacheKey = `dates_${dateRange.from}_${dateRange.to}`
+    
+    // Проверяем кэш
+    if (!forceRefresh && dataCache.value.dates.data && 
+        dataCache.value.dates.lastLoaded && 
+        !shouldReloadData('dates', dateRange)) {
+      datesChartData.value = updateDatesChartColors(
+        dataCache.value.dates.data.dates,
+        dataCache.value.dates.data.counts,
+        selectedDate.value
+      )
+      return { success: true, data: dataCache.value.dates.data, cached: true }
+    }
+    
     chartLoading.value = true
     
     try {
@@ -111,13 +177,19 @@ export const useChartStore = defineStore('chart', () => {
       const data = response.data
       
       if (data.dates && data.counts) {
+        // Сохраняем в кэш
+        dataCache.value.dates = {
+          data: { dates: data.dates, counts: data.counts },
+          lastLoaded: new Date().toISOString()
+        }
+        
         datesChartData.value = updateDatesChartColors(
           data.dates, 
           data.counts,
           selectedDate.value
         )
       }
-      return { success: true, data: response.data }
+      return { success: true, data: response.data, cached: false }
     } catch (error) {
       console.error('Dates chart data fetch error:', error)
       return { success: false, error }
@@ -146,6 +218,23 @@ export const useChartStore = defineStore('chart', () => {
           selectedDate.value
         )
       }
+    }
+  }
+  
+  // Загрузка данных в зависимости от текущего типа
+  const loadChartData = async (dateRange, forceRefresh = false) => {
+    if (chartType.value === 'topics') {
+      return await loadTopicsChartData(dateRange, forceRefresh)
+    } else {
+      return await loadDatesChartData(dateRange, forceRefresh)
+    }
+  }
+  
+  // Очистка кэша
+  const clearCache = () => {
+    dataCache.value = {
+      topics: { data: null, lastLoaded: null },
+      dates: { data: null, lastLoaded: null }
     }
   }
   
@@ -190,14 +279,6 @@ export const useChartStore = defineStore('chart', () => {
     }
   }
   
-  const loadChartData = async (dateRange) => {
-    if (chartType.value === 'topics') {
-      return await loadTopicsChartData(dateRange)
-    } else {
-      return await loadDatesChartData(dateRange)
-    }
-  }
-  
   return {
     // Состояние
     topicsChartData,
@@ -206,6 +287,7 @@ export const useChartStore = defineStore('chart', () => {
     chartType,
     selectedTopic,
     selectedDate,
+    dataCache,
     
     // Геттеры
     currentChartData,
@@ -219,6 +301,8 @@ export const useChartStore = defineStore('chart', () => {
     loadTopicsChartData,
     loadDatesChartData,
     loadChartData,
-    updateChartColors
+    updateChartColors,
+    clearCache,
+    shouldReloadData
   }
 })

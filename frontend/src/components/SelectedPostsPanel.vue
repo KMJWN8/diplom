@@ -1,6 +1,6 @@
 <!-- SelectedPostsPanel.vue -->
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed, watch } from 'vue'
 import Button from 'primevue/button'
 
 // Импорт сторов
@@ -10,26 +10,18 @@ import { useSummarizationStore } from '@/stores/useSummarizationStore'
 const postsStore = usePostsStore()
 const summarizationStore = useSummarizationStore()
 
-// Props
-const props = defineProps({
-  selectedPosts: {
-    type: Array,
-    default: () => []
-  }
-})
-
 // Emits
 const emit = defineEmits([
   'remove-post',
   'clear-selection'
 ])
 
-// Локальные состояния
-const localSelectedPosts = computed(() => props.selectedPosts)
+// Используем геттер из стора вместо пропса
+const selectedPosts = computed(() => postsStore.getSelectedPosts)
 
 // Вычисляемые свойства
 const combinedTextLength = computed(() => {
-  return localSelectedPosts.value
+  return selectedPosts.value
     .map(post => post.message || '')
     .filter(text => text.trim())
     .join('\n\n')
@@ -64,10 +56,9 @@ const buttonTooltip = computed(() => {
 
 // Методы
 const generateSummary = async () => {
-  const result = await summarizationStore.generateSummary(localSelectedPosts.value)
+  const result = await summarizationStore.generateSummary(selectedPosts.value)
   
   if (!result.success) {
-    // Ошибка уже установлена в сторе
     setTimeout(() => {
       summarizationStore.clearError()
     }, 5000)
@@ -75,27 +66,35 @@ const generateSummary = async () => {
 }
 
 const exportToWord = async () => {
-  await summarizationStore.exportToWord(localSelectedPosts.value, summarizationStore.summary)
+  await summarizationStore.exportToWord(selectedPosts.value, summarizationStore.summary)
+}
+
+const removePost = (postId) => {
+  emit('remove-post', postId)
+}
+
+const clearSelection = () => {
+  emit('clear-selection')
 }
 
 // Очистка ошибок при изменении списка
-watch(localSelectedPosts, () => {
+watch(selectedPosts, () => {
   summarizationStore.clearError()
-})
+}, { deep: true })
 </script>
 
 <template>
-  <div v-if="localSelectedPosts.length > 0" class="selected-posts-panel">
+  <div v-if="selectedPosts.length > 0" class="selected-posts-panel">
     <!-- Заголовок панели -->
     <div class="panel-header">
       <div class="header-left">
         <i class="pi pi-folder-open" />
-        <h3>Выбранные посты для суммаризации ({{ localSelectedPosts.length }})</h3>
+        <h3>Выбранные посты для суммаризации ({{ selectedPosts.length }})</h3>
       </div>
       <div class="header-right">
         <Button 
           @click="exportToWord"
-          :disabled="localSelectedPosts.length === 0 || summarizationStore.isExporting"
+          :disabled="selectedPosts.length === 0 || summarizationStore.isExporting"
           :loading="summarizationStore.isExporting"
           icon="pi pi-file-word"
           severity="help"
@@ -103,10 +102,10 @@ watch(localSelectedPosts, () => {
           size="small"
           label="Выгрузить в Word"
           class="header-action-btn"
-          :title="'Экспортировать ' + localSelectedPosts.length + ' постов в Word'"
+          :title="'Экспортировать ' + selectedPosts.length + ' постов в Word'"
         />
         <Button 
-          @click="$emit('clear-selection')"
+          @click="clearSelection"
           icon="pi pi-trash"
           severity="danger"
           outlined
@@ -124,7 +123,7 @@ watch(localSelectedPosts, () => {
       <div class="summarization-controls">
         <div class="summarization-info">
           <span class="info-text">
-            Выбрано постов: {{ localSelectedPosts.length }} 
+            Выбрано постов: {{ selectedPosts.length }} 
             ({{ combinedTextLength }} / {{ summarizationStore.MAX_TEXT_LENGTH }} символов)
           </span>
           <span v-if="isTextTooLong" class="error-text">
@@ -145,7 +144,7 @@ watch(localSelectedPosts, () => {
           <Button 
             @click="generateSummary"
             :loading="summarizationStore.loading"
-            :disabled="summarizationStore.loading || localSelectedPosts.length === 0 || isTextTooLong || isTextTooShort || summarizationStore.isExporting"
+            :disabled="summarizationStore.loading || selectedPosts.length === 0 || isTextTooLong || isTextTooShort || summarizationStore.isExporting"
             icon="pi pi-compress"
             :label="buttonLabel"
             severity="primary"
@@ -180,7 +179,7 @@ watch(localSelectedPosts, () => {
 
       <!-- Список выбранных постов -->
       <div class="selected-posts-list">
-        <div v-for="post in localSelectedPosts" :key="post.id" class="selected-post-item">
+        <div v-for="post in selectedPosts" :key="post.uniqueId || post.id" class="selected-post-item">
           <div class="post-item-header">
             <div class="post-info">
               <span class="channel-badge">{{ post.channel_name }}</span>
@@ -191,7 +190,7 @@ watch(localSelectedPosts, () => {
             </div>
             <div class="post-actions">
               <Button 
-                @click="$emit('remove-post', post.id)"
+                @click="removePost(post.id)"
                 icon="pi pi-times"
                 severity="danger"
                 text
