@@ -14,15 +14,15 @@ import { computed } from 'vue'
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 export function useChartConfiguration(props, emit) {
-  const isHorizontal = computed(() => props.chartType === 'topics')
-  
   const chartOptions = computed(() => {
+    const isHorizontal = props.chartType === 'topics'
+    
     return {
       responsive: true,
       maintainAspectRatio: false,
-      indexAxis: isHorizontal.value ? 'y' : 'x',
-      plugins: getPluginsConfig(isHorizontal.value, emit),
-      scales: getScalesConfig(isHorizontal.value, props.chartType),
+      indexAxis: isHorizontal ? 'y' : 'x',
+      plugins: getPluginsConfig(isHorizontal),
+      scales: getScalesConfig(isHorizontal, props.chartType),
       layout: {
         padding: {
           left: 10,
@@ -35,25 +35,20 @@ export function useChartConfiguration(props, emit) {
         if (elements.length > 0) {
           const index = elements[0].index
           const label = props.chartData.labels[index]
-          
-          if (props.chartType === 'topics') {
-            emit('topicClick', label)
-          } else {
-            emit('dateClick', label)
-          }
+          const eventName = props.chartType === 'topics' ? 'topicClick' : 'dateClick'
+          emit(eventName, label)
         }
       }
     }
   })
   
   return {
-    chartOptions,
-    isHorizontal
+    chartOptions
   }
 }
 
 // Вспомогательные функции
-function getPluginsConfig(isHorizontal, emit) {
+function getPluginsConfig(isHorizontal) {
   return {
     legend: {
       display: false

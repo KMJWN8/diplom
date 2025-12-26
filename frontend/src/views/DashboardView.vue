@@ -46,14 +46,6 @@ const handleDateClick = async (date) => {
   uiStore.setLoading('posts', false)
 }
 
-const handleChartClick = (data) => {
-  if (chartStore.chartType === 'topics') {
-    handleTopicClick(data)
-  } else {
-    handleDateClick(data)
-  }
-}
-
 const resetAll = () => {
   chartStore.resetSelection()
   postsStore.clearPosts()
@@ -61,25 +53,14 @@ const resetAll = () => {
 }
 
 const toggleChart = async (type) => {
-  if (chartStore.chartType === type) return // Не переключаем если уже выбран
+  if (chartStore.chartType === type) return
   
-  console.log('Переключение на тип:', type)
-  
-  // Сохраняем текущий выбор перед переключением
-  const currentSelection = chartStore.selectedTopic || chartStore.selectedDate
-  
-  // Переключаем тип графика
   uiStore.setLoading('chart', true)
   await chartStore.setChartType(type, dateStore.dateRange)
   uiStore.setLoading('chart', false)
   
-  // Если был выбор на предыдущем графике, сбрасываем его
-  if (currentSelection) {
-    chartStore.resetSelection()
-  }
-  
-  // Очищаем посты при переключении типа графика
-  postsStore.clearPosts()
+  // Сброс только если нужно сохранить поведение
+  resetAll()
 }
 
 const loadChartData = async (forceRefresh = false) => {
@@ -117,7 +98,6 @@ onMounted(async () => {
 
 // Наблюдатели
 watch(() => dateStore.dateRange, async (newRange) => {
-  console.log('Диапазон дат изменен:', newRange)
   
   // При изменении диапазона дат очищаем кэш и загружаем заново
   chartStore.clearCache()

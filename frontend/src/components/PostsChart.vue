@@ -1,13 +1,11 @@
 <!-- PostsChart.vue -->
 <script setup>
-import { ref, watch, nextTick, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import { Bar } from 'vue-chartjs'
 
-// Импорт утилитарных композаблов (они остаются без изменений)
 import { useChartConfiguration } from '@/composables/useChartConfiguration'
 import { useChartValidation } from '@/composables/useChartValidation'
 
-// Props
 const props = defineProps({
   chartData: {
     type: Object,
@@ -25,49 +23,27 @@ const props = defineProps({
   }
 })
 
-// Emits
 const emit = defineEmits(['topicClick', 'dateClick'])
 
-// Refs
 const chartRef = ref(null)
 
-// Композаблы (без изменений)
 const { chartOptions } = useChartConfiguration(props, emit)
 const { hasData } = useChartValidation(props)
 
-// Методы
 const updateChart = () => {
   if (chartRef.value?.chart) {
     chartRef.value.chart.update('none')
   }
 }
 
-const destroyChart = () => {
-  if (chartRef.value?.chart) {
-    chartRef.value.chart.destroy()
-  }
-}
-
-// Наблюдатели
 watch(() => props.chartData, () => {
   if (hasData.value) {
-    nextTick(updateChart)
+    updateChart()
   }
 }, { deep: true })
 
-watch(() => props.chartType, () => {
-  nextTick(updateChart)
-})
+watch(() => props.chartType, updateChart)
 
-// Хуки жизненного цикла
-onUnmounted(destroyChart)
-
-// Экспортируем методы
-defineExpose({
-  updateChart,
-  destroyChart,
-  getChart: () => chartRef.value?.chart
-})
 </script>
 
 <template>

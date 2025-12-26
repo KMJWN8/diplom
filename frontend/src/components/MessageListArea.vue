@@ -222,7 +222,7 @@ const formatDate = (dateString) => {
 }
 
 // Сбрасываем на первую страницу при изменении списка постов
-watch(() => props.posts, () => {
+watch(() => props.posts.length, () => {
   currentPage.value = 1
 }, { deep: true })
 
