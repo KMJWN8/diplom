@@ -373,7 +373,6 @@ watch(totalPages, (newTotal) => {
 }
 
 .topic {
-  background: #e9ecef;
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 12px;

@@ -38,10 +38,10 @@ const isTextTooShort = computed(() => {
 
 const buttonLabel = computed(() => {
   if (summarizationStore.isExporting) return 'Экспорт в Word...'
-  if (summarizationStore.loading) return 'Суммаризация...'
+  if (summarizationStore.loading) return 'Аннотирование...'
   if (isTextTooLong.value) return 'Текст слишком длинный'
   if (isTextTooShort.value) return 'Текст слишком короткий'
-  return 'Суммаризировать выбранные посты'
+  return 'Аннотировать выбранные посты'
 })
 
 const buttonTooltip = computed(() => {
@@ -51,7 +51,7 @@ const buttonTooltip = computed(() => {
   if (isTextTooShort.value) {
     return `Добавьте больше постов. Минимум ${summarizationStore.MIN_TEXT_LENGTH} символов`
   }
-  return `Суммаризировать ${combinedTextLength.value} символов`
+  return `Аннотировать ${combinedTextLength.value} символов`
 })
 
 // Методы
@@ -89,7 +89,7 @@ watch(selectedPosts, () => {
     <div class="panel-header">
       <div class="header-left">
         <i class="pi pi-folder-open" />
-        <h3>Выбранные посты для суммаризации ({{ selectedPosts.length }})</h3>
+        <h3>Выбранные посты для аннотации ({{ selectedPosts.length }})</h3>
       </div>
       <div class="header-right">
         <Button 
@@ -132,11 +132,11 @@ watch(selectedPosts, () => {
           </span>
           <span v-else-if="isTextTooShort" class="warning-text">
             <i class="pi pi-info-circle"></i>
-            Текст слишком короткий для суммаризации (минимум {{ summarizationStore.MIN_TEXT_LENGTH }} символов)
+            Текст слишком короткий для аннотации (минимум {{ summarizationStore.MIN_TEXT_LENGTH }} символов)
           </span>
           <span v-else class="success-text">
             <i class="pi pi-check-circle"></i>
-            Текст подходит для суммаризации
+            Текст подходит для аннотации
           </span>
         </div>
         
@@ -155,7 +155,7 @@ watch(selectedPosts, () => {
 
       <!-- Превью суммаризации -->
       <div v-if="summarizationStore.summary" class="summary-preview">
-        <h4>Результат суммаризации ({{ summarizationStore.summary.length }} символов):</h4>
+        <h4>Результат аннотирования ({{ summarizationStore.summary.length }} символов):</h4>
         <div class="summary-text">
           {{ summarizationStore.summary }}
         </div>
@@ -165,16 +165,6 @@ watch(selectedPosts, () => {
       <div v-if="summarizationStore.error" class="error-message">
         <i class="pi pi-exclamation-triangle"></i>
         {{ summarizationStore.error }}
-      </div>
-
-      <!-- Информация о лимитах -->
-      <div class="limits-info">
-        <p><strong>Ограничения суммаризации:</strong></p>
-        <ul>
-          <li>Максимальная длина текста: {{ summarizationStore.MAX_TEXT_LENGTH }} символов</li>
-          <li>Минимальная длина текста: {{ summarizationStore.MIN_TEXT_LENGTH }} символов</li>
-          <li>Текущая длина: {{ combinedTextLength }} символов</li>
-        </ul>
       </div>
 
       <!-- Список выбранных постов -->
@@ -210,10 +200,10 @@ watch(selectedPosts, () => {
           
           <div class="post-meta">
             <span class="meta-item">
-              <i class="pi pi-eye" /> {{ post.views }}
+              <i />👁️ {{ post.views }}
             </span>
             <span class="meta-item">
-              <i class="pi pi-comments" /> {{ post.comments_count }}
+              <i />💬 {{ post.comments_count }}
             </span>
             <span class="topic-tag">{{ postsStore.formatTopicToHashtag(post.topic) }}</span>
           </div>
@@ -246,7 +236,7 @@ watch(selectedPosts, () => {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-light);
   color: white;
   border-radius: 8px 8px 0 0;
 }
@@ -477,7 +467,7 @@ watch(selectedPosts, () => {
 }
 
 .channel-badge {
-  background: #667eea;
+  background: var(--primary-light);
   color: white;
   padding: 4px 10px;
   border-radius: 12px;
@@ -526,7 +516,6 @@ watch(selectedPosts, () => {
 }
 
 .topic-tag {
-  background: #e9ecef;
   padding: 4px 12px;
   border-radius: 15px;
   font-size: 12px;

@@ -22,7 +22,7 @@ export const useSummarizationStore = defineStore('summarization', () => {
   const generateSummary = async (selectedPosts) => {
     // Проверяем наличие постов
     if (!selectedPosts || selectedPosts.length === 0) {
-      error.value = 'Нет выбранных постов для суммаризации'
+      error.value = 'Нет выбранных постов для аннотации'
       return { success: false, error: error.value }
     }
     
@@ -69,7 +69,7 @@ export const useSummarizationStore = defineStore('summarization', () => {
       } else if (err.response?.data?.detail) {
         error.value = err.response.data.detail
       } else {
-        error.value = err.message || 'Не удалось суммаризировать текст'
+        error.value = err.message || 'Не удалось аннотировать текст'
       }
       
       return { success: false, error: error.value }
@@ -104,106 +104,36 @@ export const useSummarizationStore = defineStore('summarization', () => {
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>Telegram посты</title>
           <style>
             body { 
-              font-family: 'Times New Roman', Times, serif; 
-              margin: 2cm; 
-              font-size: 12pt; 
+              font-family: 'Times New Roman'; 
+              margin: 0.5cm 0.5cm 0.5cm 0.5cm; 
+              font-size: 14pt; 
               line-height: 1.5;
+              text-align: justify;
+              text-justify: inter-word;
+              text-align-last: justify;
+              word-spacing: normal;
+              letter-spacing: normal;
+              hyphens: auto;
             }
             h1 { 
               text-align: center; 
-              font-size: 16pt;
-              margin-bottom: 20px;
-            }
-            .post { 
-              margin: 25px 0; 
-              page-break-inside: avoid;
-            }
-            .post-header { 
+              font-size: 14pt;
               margin-bottom: 10px;
-              border-bottom: 1px solid #cccccc;
-              padding-bottom: 5px;
-            }
-            .post-meta { 
-              font-size: 11pt; 
-              color: #666666;
-              margin-bottom: 8px;
-            }
-            .post-text { 
-              margin: 10px 0; 
-              line-height: 1.6;
-              text-align: justify;
-            }
-            .divider { 
-              border-top: 1px solid #cccccc; 
-              margin: 20px 0;
-            }
-            .summary { 
-              margin: 20px 0;
-              font-style: italic;
             }
           </style>
         </head>
         <body>
-          <h1>TELEGRAM ПОСТЫ</h1>
       `
       
       // Добавляем суммаризацию если есть
       if (summaryText || summary.value) {
         htmlContent += `
-          <div class="summary">
-            <strong>Суммаризация:</strong><br>
+            <h1>5. Проблемы в субъекте РФ</h1>
             ${summaryText || summary.value}
-          </div>
         `
       }
-      
-      // Добавляем посты
-      selectedPosts.forEach((post, index) => {
-        const postText = post.message || ''
-        
-        htmlContent += `
-          <div class="post">
-            <div class="post-header">
-              <div class="post-meta">
-                <strong>Пост ${index + 1}</strong> | 
-                Канал: ${post.channel_name || 'Неизвестно'} | 
-                Дата: ${formatDate(post.date)} | 
-                Тема: #${post.topic || 'Без темы'}
-              </div>
-            </div>
-        `
-        
-        if (postText) {
-          const paragraphs = postText.split('\n').filter(p => p.trim())
-          if (paragraphs.length > 0) {
-            paragraphs.forEach(paragraph => {
-              htmlContent += `<div class="post-text">${paragraph}</div>`
-            })
-          } else {
-            htmlContent += `<div class="post-text">${postText}</div>`
-          }
-        } else {
-          htmlContent += '<div class="post-text"><em>Текст поста отсутствует</em></div>'
-        }
-        
-        htmlContent += '</div>'
-        
-        if (index < selectedPosts.length - 1) {
-          htmlContent += '<div class="divider"></div>'
-        }
-      })
-      
-      // Футер
-      htmlContent += `
-          <div style="margin-top: 40px; text-align: right; font-size: 10pt; color: #888888;">
-            Сформировано: ${new Date().toLocaleDateString('ru-RU')}
-          </div>
-        </body>
-        </html>
-      `
       
       // Создаем Blob и скачиваем
       const blob = new Blob([htmlContent], { 
